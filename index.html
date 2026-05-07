@@ -423,6 +423,115 @@
     height: 20px;
     flex-shrink: 0;
   }
+
+  /* ===== MODAL GENÉRICO ===== */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 60;
+    animation: fadeIn 0.2s ease;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .modal-container {
+    min-height: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-content {
+    background: var(--color-surface);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    margin: 24px 0;
+  }
+  @keyframes modalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background: var(--color-surface);
+    border-radius: 16px 16px 0 0;
+    z-index: 1;
+  }
+  .modal-body {
+    padding: 20px;
+  }
+  .modal-close-btn {
+    background: var(--color-bg-2);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text);
+  }
+  .modal-close-btn:hover {
+    background: var(--color-border);
+  }
+
+  @media (max-width: 640px) {
+    .modal-container {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .modal-content {
+      border-radius: 16px 16px 0 0;
+      margin: 0;
+      max-width: 100%;
+      max-height: 95vh;
+      overflow-y: auto;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    @keyframes modalSlideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+  }
+
+  /* FAB para agregar gasto en Movimientos */
+  .fab-add {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(15,76,92,0.35);
+    z-index: 30;
+    transition: transform 0.15s ease;
+  }
+  .fab-add:hover {
+    transform: scale(1.05);
+  }
+  @media (min-width: 641px) {
+    .fab-add {
+      bottom: 30px;
+      right: 30px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1202,8 +1311,8 @@ function renderApp() {
         <nav class="top-tabs max-w-6xl mx-auto px-2 gap-1 overflow-x-auto">
           ${[
             { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-            { id: 'register', label: 'Registrar', icon: 'plus' },
             { id: 'transactions', label: 'Movimientos', icon: 'list' },
+            { id: 'analysis', label: 'Análisis', icon: 'sparkles' },
             { id: 'subscriptions', label: 'Suscripciones', icon: 'repeat' },
             { id: 'installments', label: 'Cuotas', icon: 'credit-card' },
             { id: 'goals', label: 'Metas', icon: 'target' },
@@ -1214,6 +1323,10 @@ function renderApp() {
               <span>${t.label}</span>
             </button>
           `).join('')}
+          <button data-action="open-add-expense" class="tab" style="color: var(--color-primary); font-weight: 600;">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Agregar gasto</span>
+          </button>
         </nav>
       </header>
 
@@ -1222,6 +1335,7 @@ function renderApp() {
         ${State.view === 'dashboard' ? renderDashboard() : ''}
         ${State.view === 'register' ? renderRegister() : ''}
         ${State.view === 'transactions' ? renderTransactions() : ''}
+        ${State.view === 'analysis' ? renderAnalysis() : ''}
         ${State.view === 'subscriptions' ? renderSubscriptions() : ''}
         ${State.view === 'installments' ? renderInstallments() : ''}
         ${State.view === 'goals' ? renderGoals() : ''}
@@ -1240,7 +1354,7 @@ function renderApp() {
           <i data-lucide="list"></i>
           <span>Movimientos</span>
         </button>
-        <button data-action="switch-view" data-view="register"
+        <button data-action="open-add-expense"
                 class="bottom-nav-tab fab">
           <i data-lucide="plus"></i>
           <span>Registrar</span>
@@ -1264,6 +1378,11 @@ function renderApp() {
           <div class="more-menu-handle"></div>
           <h3 class="font-display font-bold text-lg mb-4 text-center">Más opciones</h3>
           <div class="space-y-1">
+            <button data-action="switch-view-close" data-view="analysis"
+                    class="more-menu-item ${State.view === 'analysis' ? 'active' : ''}">
+              <i data-lucide="sparkles"></i>
+              <span>Análisis</span>
+            </button>
             <button data-action="switch-view-close" data-view="subscriptions"
                     class="more-menu-item ${State.view === 'subscriptions' ? 'active' : ''}">
               <i data-lucide="repeat"></i>
@@ -1287,6 +1406,29 @@ function renderApp() {
           </button>
         </div>
       </div>
+
+      <!-- Modal genérico (registrar gasto, etc.) -->
+      ${Modal.open ? `
+        <div class="modal-backdrop" data-action="close-modal-backdrop">
+          <div class="modal-container">
+            <div class="modal-content" data-modal-content>
+              <div class="modal-header">
+                <h2 class="font-display font-bold text-lg">
+                  ${Modal.type === 'register'
+                    ? (RegForm.editingId ? 'Editar gasto' : 'Registrar gasto')
+                    : ''}
+                </h2>
+                <button class="modal-close-btn" data-action="close-modal" title="Cerrar">
+                  <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+              </div>
+              <div class="modal-body">
+                ${Modal.type === 'register' ? renderRegister() : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -1308,6 +1450,11 @@ function bindApp() {
     loadAndRenderInvites();
   }
   if (State.view === 'dashboard') renderDashboardCharts();
+
+  // Si hay un modal abierto con form de registro, también bindearlo
+  if (Modal.open && Modal.type === 'register') {
+    bindRegister();
+  }
 
   // Click outside user menu
   document.addEventListener('click', (e) => {
@@ -1354,6 +1501,15 @@ function handleAppAction(e) {
     case 'delete-tx':
       deleteTransaction(ds.id);
       break;
+    case 'edit-tx': {
+      const tx = State.transactions.find(t => t.id === ds.id);
+      if (!tx) {
+        showToast('Movimiento no encontrado', 'error');
+        return;
+      }
+      Modal.show('register', { editTransaction: tx });
+      break;
+    }
     case 'delete-sub':
       deleteSubscription(ds.id);
       break;
@@ -1407,6 +1563,18 @@ function handleAppAction(e) {
       break;
     case 'remove-member':
       removeMember(ds.email);
+      break;
+    case 'open-add-expense':
+      Modal.show('register');
+      break;
+    case 'close-modal':
+      Modal.close();
+      break;
+    case 'close-modal-backdrop':
+      // Solo cerrar si se hace click en el backdrop, no en el contenido
+      if (e.target.classList.contains('modal-backdrop') || e.target.classList.contains('modal-container')) {
+        Modal.close();
+      }
       break;
     case 'reset-data':
       resetAllData();
@@ -1789,6 +1957,7 @@ const RegForm = {
   paymentMethod: '',
   notes: '',
   totalInstallments: 3,
+  editingId: null, // null = nuevo gasto, id = editando
 
   reset() {
     this.type = 'unique';
@@ -1800,6 +1969,50 @@ const RegForm = {
     this.paymentMethod = State.config.paymentMethods[0] || '';
     this.notes = '';
     this.totalInstallments = 3;
+    this.editingId = null;
+  },
+
+  loadFromTransaction(tx) {
+    this.editingId = tx.id;
+    this.type = tx.type === 'installment' ? 'unique' : (tx.type || 'unique'); // las cuotas se editan como gasto único individual
+    this.date = tx.date;
+    this.personId = tx.personId;
+    this.category = tx.category;
+    this.description = tx.description;
+    this.amount = String(tx.amount);
+    this.paymentMethod = tx.paymentMethod;
+    this.notes = tx.notes || '';
+    this.totalInstallments = tx.installmentInfo?.total || 3;
+  }
+};
+
+// Sistema de modal genérico
+const Modal = {
+  open: false,
+  type: null,
+  returnTo: null,
+
+  show(type, options = {}) {
+    this.open = true;
+    this.type = type;
+    this.returnTo = options.returnTo || null;
+    if (type === 'register') {
+      if (options.editTransaction) {
+        RegForm.loadFromTransaction(options.editTransaction);
+      } else {
+        RegForm.reset();
+      }
+    }
+    render();
+  },
+  close() {
+    this.open = false;
+    this.type = null;
+    if (this.returnTo) {
+      State.view = this.returnTo;
+      this.returnTo = null;
+    }
+    render();
   }
 };
 
@@ -1821,31 +2034,39 @@ function renderRegister() {
           <p style="color: var(--color-text-muted);">Completa los datos del gasto</p>
         </div>
 
-        <!-- Tipo -->
-        <div class="grid grid-cols-2 gap-2 mb-5">
-          <button data-form-action="set-type" data-type="unique"
-                  class="p-4 rounded-xl border-2 transition-all"
-                  style="border-color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-border)'};
-                         background: ${RegForm.type === 'unique' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
-            <i data-lucide="receipt" class="w-6 h-6 mx-auto mb-1"
-               style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
-            <span class="block text-sm font-semibold"
-                  style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text)'};">
-              Pago único
-            </span>
-          </button>
-          <button data-form-action="set-type" data-type="installments"
-                  class="p-4 rounded-xl border-2 transition-all"
-                  style="border-color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-border)'};
-                         background: ${RegForm.type === 'installments' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
-            <i data-lucide="credit-card" class="w-6 h-6 mx-auto mb-1"
-               style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
-            <span class="block text-sm font-semibold"
-                  style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text)'};">
-              En cuotas
-            </span>
-          </button>
-        </div>
+        <!-- Tipo (oculto en modo edición para no romper cuotas) -->
+        ${!RegForm.editingId ? `
+          <div class="grid grid-cols-2 gap-2 mb-5">
+            <button data-form-action="set-type" data-type="unique"
+                    class="p-4 rounded-xl border-2 transition-all"
+                    style="border-color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-border)'};
+                           background: ${RegForm.type === 'unique' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
+              <i data-lucide="receipt" class="w-6 h-6 mx-auto mb-1"
+                 style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
+              <span class="block text-sm font-semibold"
+                    style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text)'};">
+                Pago único
+              </span>
+            </button>
+            <button data-form-action="set-type" data-type="installments"
+                    class="p-4 rounded-xl border-2 transition-all"
+                    style="border-color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-border)'};
+                           background: ${RegForm.type === 'installments' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
+              <i data-lucide="credit-card" class="w-6 h-6 mx-auto mb-1"
+                 style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
+              <span class="block text-sm font-semibold"
+                    style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text)'};">
+                En cuotas
+              </span>
+            </button>
+          </div>
+        ` : `
+          <div class="rounded-lg p-3 mb-4 text-sm flex items-start gap-2"
+               style="background: var(--color-primary-soft); color: var(--color-primary);">
+            <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+            <span>Estás editando un gasto. Para cambiar el tipo (único/cuotas) tienes que eliminarlo y crearlo de nuevo.</span>
+          </div>
+        `}
 
         <!-- Form -->
         <div class="space-y-4">
@@ -1919,8 +2140,8 @@ function renderRegister() {
           </div>
 
           <button data-form-action="submit" class="btn btn-primary w-full" style="padding: 14px;">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            Registrar gasto
+            <i data-lucide="${RegForm.editingId ? 'check' : 'plus'}" class="w-5 h-5"></i>
+            ${RegForm.editingId ? 'Guardar cambios' : 'Registrar gasto'}
           </button>
         </div>
       </div>
@@ -2002,6 +2223,36 @@ function submitRegister() {
     return;
   }
 
+  // ----- MODO EDICIÓN -----
+  if (RegForm.editingId) {
+    const idx = State.transactions.findIndex(t => t.id === RegForm.editingId);
+    if (idx === -1) {
+      showToast('Movimiento no encontrado', 'error');
+      return;
+    }
+    const original = State.transactions[idx];
+    State.transactions[idx] = {
+      ...original,
+      date: RegForm.date,
+      personId: RegForm.personId,
+      category: RegForm.category,
+      description: RegForm.description,
+      amount: amt,
+      paymentMethod: RegForm.paymentMethod,
+      notes: RegForm.notes,
+      // Preservamos type, installmentInfo, createdBy, createdAt, id
+      updatedAt: new Date().toISOString(),
+      updatedBy: State.currentUser,
+    };
+    showToast('✓ Cambios guardados');
+    State.saveTransactions();
+    RegForm.reset();
+    if (Modal.open) Modal.close();
+    else { State.view = 'transactions'; render(); }
+    return;
+  }
+
+  // ----- MODO CREACIÓN -----
   if (RegForm.type === 'installments') {
     const total = parseInt(RegForm.totalInstallments);
     if (!total || total < 2) {
@@ -2051,8 +2302,15 @@ function submitRegister() {
 
   State.saveTransactions();
   RegForm.reset();
-  State.view = 'dashboard';
-  render();
+
+  // Si el form estaba en modal, cerrar y quedarse en la vista actual
+  if (Modal.open) {
+    Modal.close();
+  } else {
+    // Si vino del tab "Registrar", llevar a Movimientos (no Dashboard)
+    State.view = 'transactions';
+    render();
+  }
 }
 
 function deleteTransaction(id) {
@@ -2090,6 +2348,14 @@ function renderTransactions() {
 
   return `
     <div class="space-y-4">
+      <!-- Botón agregar gasto (visible en desktop, FAB en móvil) -->
+      <div class="hidden sm:flex justify-end">
+        <button data-action="open-add-expense" class="btn btn-primary">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          Agregar gasto
+        </button>
+      </div>
+
       <!-- Filters -->
       <div class="card p-4">
         <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
@@ -2158,18 +2424,31 @@ function renderTransactions() {
                 </div>
                 <div class="text-right flex-shrink-0">
                   <p class="font-display font-bold text-lg number">${fmt(t.amount)}</p>
-                  <button data-action="delete-tx" data-id="${t.id}"
-                          class="text-xs hover:underline mt-1 inline-flex items-center gap-1"
-                          style="color: var(--color-danger);">
-                    <i data-lucide="trash-2" class="w-3 h-3"></i>
-                    Eliminar
-                  </button>
+                  <div class="flex justify-end gap-2 mt-1">
+                    <button data-action="edit-tx" data-id="${t.id}"
+                            class="text-xs hover:underline inline-flex items-center gap-1"
+                            style="color: var(--color-primary);">
+                      <i data-lucide="edit-2" class="w-3 h-3"></i>
+                      Editar
+                    </button>
+                    <button data-action="delete-tx" data-id="${t.id}"
+                            class="text-xs hover:underline inline-flex items-center gap-1"
+                            style="color: var(--color-danger);">
+                      <i data-lucide="trash-2" class="w-3 h-3"></i>
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               </div>
             `;
           }).join('')}
         </div>
       `}
+
+      <!-- FAB flotante en móvil -->
+      <button data-action="open-add-expense" class="fab-add sm:hidden" title="Agregar gasto">
+        <i data-lucide="plus" class="w-6 h-6"></i>
+      </button>
     </div>
   `;
 }
@@ -2516,6 +2795,346 @@ function renderInstallments() {
           }).join('')}
         </div>
       `}
+    </div>
+  `;
+}
+
+// =============================================================================
+// ANALYSIS VIEW (insights automáticos)
+// =============================================================================
+function renderAnalysis() {
+  const txs = State.transactions || [];
+  if (txs.length === 0) {
+    return `
+      <div class="card p-8 text-center">
+        <i data-lucide="sparkles" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
+        <p class="font-display text-lg font-bold mb-2">Sin movimientos para analizar</p>
+        <p class="text-sm" style="color: var(--color-text-muted);">
+          Cargá algunos gastos y volvé acá para ver tus insights automáticos.
+        </p>
+      </div>
+    `;
+  }
+
+  // -- Helpers --
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+  const monthTxs = txs.filter(t => monthKey(t.date) === currentMonthKey);
+  const prevMonthTxs = txs.filter(t => monthKey(t.date) === prevMonthKey);
+
+  const totalMonth = monthTxs.reduce((s, t) => s + t.amount, 0);
+  const totalPrevMonth = prevMonthTxs.reduce((s, t) => s + t.amount, 0);
+
+  // -- Insight 1: gastos pequeños del mes (< $5.000 CLP) --
+  const SMALL_THRESHOLD = 5000;
+  const smallTxs = monthTxs.filter(t => t.amount < SMALL_THRESHOLD);
+  const smallTotal = smallTxs.reduce((s, t) => s + t.amount, 0);
+  const smallPct = totalMonth > 0 ? (smallTotal / totalMonth * 100) : 0;
+
+  // -- Insight 2: categoría con más crecimiento --
+  const byCatCurrent = {};
+  monthTxs.forEach(t => { byCatCurrent[t.category] = (byCatCurrent[t.category] || 0) + t.amount; });
+  const byCatPrev = {};
+  prevMonthTxs.forEach(t => { byCatPrev[t.category] = (byCatPrev[t.category] || 0) + t.amount; });
+  let topGrowth = null;
+  for (const cat of Object.keys(byCatCurrent)) {
+    const cur = byCatCurrent[cat] || 0;
+    const prev = byCatPrev[cat] || 0;
+    if (prev === 0) continue; // ignoramos sin base de comparación
+    const diff = cur - prev;
+    const pct = (diff / prev) * 100;
+    if (!topGrowth || pct > topGrowth.pct) {
+      topGrowth = { category: cat, current: cur, previous: prev, diff, pct };
+    }
+  }
+
+  // -- Insight 3: día de la semana donde más gastas --
+  const byDow = [0, 0, 0, 0, 0, 0, 0]; // domingo..sábado
+  const countByDow = [0, 0, 0, 0, 0, 0, 0];
+  txs.forEach(t => {
+    const d = new Date(t.date + 'T00:00:00');
+    const dow = d.getDay();
+    byDow[dow] += t.amount;
+    countByDow[dow] += 1;
+  });
+  const dowNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const maxDowIdx = byDow.indexOf(Math.max(...byDow));
+  const totalAcrossDays = byDow.reduce((s, x) => s + x, 0);
+  const dowPct = totalAcrossDays > 0 ? (byDow[maxDowIdx] / totalAcrossDays * 100) : 0;
+
+  // -- Insight 4: descripciones repetidas (gastos hormiga frecuentes) --
+  const byDesc = {};
+  monthTxs.forEach(t => {
+    const k = (t.description || '').trim().toLowerCase();
+    if (!k) return;
+    if (!byDesc[k]) byDesc[k] = { count: 0, total: 0, name: t.description };
+    byDesc[k].count += 1;
+    byDesc[k].total += t.amount;
+  });
+  const repeated = Object.values(byDesc)
+    .filter(x => x.count >= 4) // más de 3 veces en el mes
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+
+  // -- Insight 5: top 5 movimientos más caros del mes --
+  const top5 = [...monthTxs].sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+  // -- Insight 6: comparativa por categoría (mes actual vs anterior) --
+  const allCats = new Set([...Object.keys(byCatCurrent), ...Object.keys(byCatPrev)]);
+  const catComparison = Array.from(allCats).map(cat => ({
+    category: cat,
+    current: byCatCurrent[cat] || 0,
+    previous: byCatPrev[cat] || 0,
+  })).sort((a, b) => b.current - a.current);
+
+  const maxCatValue = Math.max(...catComparison.flatMap(c => [c.current, c.previous]), 1);
+
+  // -- Insight 7: suscripciones inactivas detectadas --
+  // Detectamos suscripciones que no han sido reflejadas como gasto en los últimos 2 meses
+  const subs = State.subscriptions || [];
+  const inactiveSubs = subs.filter(s => {
+    if (!s.active) return false;
+    const subKeyword = s.name.toLowerCase();
+    const recentlyUsed = txs.some(t => {
+      const txDate = new Date(t.date + 'T00:00:00');
+      const monthsAgo = (now - txDate) / (1000 * 60 * 60 * 24 * 30);
+      return monthsAgo <= 2 && t.description.toLowerCase().includes(subKeyword);
+    });
+    return !recentlyUsed;
+  });
+
+  // ---- Render ----
+  const monthName = monthLabel(currentMonthKey);
+
+  return `
+    <div class="space-y-3 sm:space-y-4">
+      <!-- Hero -->
+      <div class="rounded-2xl p-5 text-white relative overflow-hidden"
+           style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));">
+        <div class="relative z-10">
+          <p class="text-sm opacity-80 mb-1">Análisis automático</p>
+          <p class="font-display font-bold text-2xl">${monthName}</p>
+          <p class="text-sm opacity-80 mt-1">
+            ${monthTxs.length} ${monthTxs.length === 1 ? 'movimiento' : 'movimientos'} ·
+            <strong class="number">${fmt(totalMonth)}</strong> en total
+          </p>
+        </div>
+        <i data-lucide="sparkles" class="w-32 h-32 absolute -right-4 -bottom-4 opacity-10"></i>
+      </div>
+
+      <!-- Insight: Gastos hormiga -->
+      ${smallTxs.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-2 flex items-center gap-2">
+            <span style="font-size: 18px;">🐜</span>
+            Gastos hormiga (menores a ${fmt(SMALL_THRESHOLD)})
+          </h3>
+          <p class="text-sm" style="color: var(--color-text-muted);">
+            Llevas <strong>${smallTxs.length} ${smallTxs.length === 1 ? 'gasto pequeño' : 'gastos pequeños'}</strong>
+            que suman <strong class="number" style="color: var(--color-text);">${fmt(smallTotal)}</strong>
+            (${smallPct.toFixed(0)}% del mes).
+          </p>
+          ${smallPct > 15 ? `
+            <p class="text-xs mt-2 italic" style="color: var(--color-text-subtle);">
+              💡 Los gastos pequeños frecuentes suelen pasar desapercibidos pero acumulan rápido.
+            </p>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      <!-- Insight: gastos repetidos -->
+      ${repeated.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 flex items-center gap-2">
+            <span style="font-size: 18px;">🔁</span>
+            Compras repetidas este mes
+          </h3>
+          <div class="space-y-2">
+            ${repeated.map(r => `
+              <div class="flex items-center justify-between p-2 rounded-lg" style="background: var(--color-bg-2);">
+                <div>
+                  <p class="text-sm font-medium">${escapeHtml(r.name)}</p>
+                  <p class="text-xs" style="color: var(--color-text-muted);">${r.count} veces este mes</p>
+                </div>
+                <p class="font-display font-bold number">${fmt(r.total)}</p>
+              </div>
+            `).join('')}
+          </div>
+          <p class="text-xs mt-3 italic" style="color: var(--color-text-subtle);">
+            💡 Revisá si alguna de estas compras la podés hacer una sola vez en mayor cantidad.
+          </p>
+        </div>
+      ` : ''}
+
+      <!-- Insight: Top 5 movimientos del mes -->
+      ${top5.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 flex items-center gap-2">
+            <i data-lucide="trending-up" class="w-5 h-5" style="color: var(--color-primary);"></i>
+            Top 5 movimientos del mes
+          </h3>
+          <div class="space-y-2">
+            ${top5.map((t, i) => {
+              const p = getPerson(t.personId);
+              return `
+                <div class="flex items-center justify-between p-2 rounded-lg" style="background: var(--color-bg-2);">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                         style="background: var(--color-primary);">
+                      ${i + 1}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium truncate">${escapeHtml(t.description)}</p>
+                      <p class="text-xs" style="color: var(--color-text-muted);">
+                        ${escapeHtml(t.category)} · ${escapeHtml(p?.name || 'Compartido')}
+                      </p>
+                    </div>
+                  </div>
+                  <p class="font-display font-bold number flex-shrink-0 ml-2">${fmt(t.amount)}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Insight: Categoría con más crecimiento -->
+      ${topGrowth && topGrowth.pct > 20 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-2 flex items-center gap-2">
+            <span style="font-size: 18px;">📈</span>
+            Categoría que más creció
+          </h3>
+          <div class="rounded-lg p-3" style="background: var(--color-warning-soft);">
+            <p class="font-semibold" style="color: var(--color-warning);">
+              ${escapeHtml(topGrowth.category)}
+            </p>
+            <p class="text-sm mt-1" style="color: var(--color-text);">
+              <span class="number">${fmt(topGrowth.previous)}</span> →
+              <strong class="number">${fmt(topGrowth.current)}</strong>
+              (<strong>+${topGrowth.pct.toFixed(0)}%</strong>)
+            </p>
+            <p class="text-xs mt-2 italic" style="color: var(--color-text-muted);">
+              💡 Comparado con ${monthLabel(prevMonthKey)}.
+            </p>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Insight: Día con más gastos -->
+      <div class="card p-4">
+        <h3 class="font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="calendar" class="w-5 h-5" style="color: var(--color-primary);"></i>
+          Tu día más gastador (histórico)
+        </h3>
+        <div class="grid grid-cols-7 gap-1 mb-2">
+          ${dowNames.map((name, i) => {
+            const value = byDow[i];
+            const pct = totalAcrossDays > 0 ? (value / Math.max(...byDow) * 100) : 0;
+            const isMax = i === maxDowIdx && value > 0;
+            return `
+              <div class="text-center">
+                <div class="rounded-md mb-1 transition-all"
+                     style="height: 60px; display: flex; flex-direction: column; justify-content: flex-end;
+                            background: var(--color-bg-2);">
+                  <div style="height: ${pct}%;
+                              background: ${isMax ? 'var(--color-primary)' : 'var(--color-primary-soft)'};
+                              border-radius: 4px;"></div>
+                </div>
+                <p class="text-[10px]" style="color: ${isMax ? 'var(--color-primary)' : 'var(--color-text-muted)'};
+                                              font-weight: ${isMax ? '700' : '400'};">
+                  ${name.slice(0, 3)}
+                </p>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <p class="text-sm mt-2" style="color: var(--color-text-muted);">
+          Gastas más los <strong style="color: var(--color-text);">${dowNames[maxDowIdx].toLowerCase()}</strong>
+          (${dowPct.toFixed(0)}% del total).
+        </p>
+      </div>
+
+      <!-- Insight: Comparativa por categoría -->
+      ${catComparison.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-5 h-5" style="color: var(--color-primary);"></i>
+            Por categoría (este mes vs anterior)
+          </h3>
+          <div class="space-y-3">
+            ${catComparison.slice(0, 8).map(c => {
+              const curWidth = (c.current / maxCatValue) * 100;
+              const prevWidth = (c.previous / maxCatValue) * 100;
+              return `
+                <div>
+                  <div class="flex justify-between text-sm mb-1">
+                    <span class="font-medium">${escapeHtml(c.category)}</span>
+                    <span class="number" style="color: var(--color-text-muted);">${fmt(c.current)}</span>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs w-12 flex-shrink-0" style="color: var(--color-primary);">Hoy</span>
+                      <div class="flex-1 h-3 rounded-full" style="background: var(--color-border);">
+                        <div class="h-full rounded-full transition-all"
+                             style="width: ${curWidth}%; background: var(--color-primary);"></div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs w-12 flex-shrink-0" style="color: var(--color-text-muted);">Antes</span>
+                      <div class="flex-1 h-3 rounded-full" style="background: var(--color-border);">
+                        <div class="h-full rounded-full transition-all"
+                             style="width: ${prevWidth}%; background: var(--color-text-muted); opacity: 0.5;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Insight: Suscripciones potencialmente inactivas -->
+      ${inactiveSubs.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-2 flex items-center gap-2">
+            <span style="font-size: 18px;">🎬</span>
+            Suscripciones que tal vez no estás usando
+          </h3>
+          <p class="text-sm mb-3" style="color: var(--color-text-muted);">
+            Estas suscripciones están activas pero no detectamos gastos relacionados en los últimos 2 meses:
+          </p>
+          <div class="space-y-2">
+            ${inactiveSubs.map(s => `
+              <div class="flex items-center justify-between p-2 rounded-lg"
+                   style="background: var(--color-warning-soft);">
+                <div>
+                  <p class="text-sm font-medium">${escapeHtml(s.name)}</p>
+                  <p class="text-xs" style="color: var(--color-text-muted);">
+                    Día ${s.paymentDay} · ${escapeHtml(s.category || '')}
+                  </p>
+                </div>
+                <p class="font-display font-bold number">${fmt(s.amount)}</p>
+              </div>
+            `).join('')}
+          </div>
+          <p class="text-xs mt-3 italic" style="color: var(--color-text-subtle);">
+            💡 Revisá si alguna podés cancelar para ahorrar.
+          </p>
+        </div>
+      ` : ''}
+
+      <!-- Footer disclaimer -->
+      <div class="text-center py-4">
+        <p class="text-xs" style="color: var(--color-text-subtle);">
+          Estos análisis se calculan automáticamente con tus datos.<br>
+          Son sugerencias, no consejos financieros profesionales.
+        </p>
+      </div>
     </div>
   `;
 }
