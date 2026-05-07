@@ -1,0 +1,2912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="theme-color" content="#0F4C5C">
+<title>Finanzas — Gestor de Gastos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-bg: #FAF8F5;
+    --color-bg-2: #F4EFE6;
+    --color-surface: #FFFFFF;
+    --color-primary: #0F4C5C;
+    --color-primary-hover: #0A3845;
+    --color-primary-soft: #E6F0F2;
+    --color-accent: #C8A45C;
+    --color-accent-soft: #F7EDD4;
+    --color-text: #1A1A1A;
+    --color-text-muted: #6B6B6B;
+    --color-text-subtle: #9A9A9A;
+    --color-border: #E8E2D8;
+    --color-border-strong: #D6CCBC;
+    --color-success: #2D6A4F;
+    --color-success-soft: #E0EFE6;
+    --color-danger: #C1502E;
+    --color-danger-soft: #FCE8DC;
+    --color-warning: #D08C32;
+    --color-warning-soft: #FAEDD3;
+  }
+  * { -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .font-display {
+    font-family: 'Fraunces', serif;
+    font-feature-settings: 'ss01', 'ss02';
+    letter-spacing: -0.02em;
+  }
+  .number {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Subtle texture */
+  .texture-paper {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(15,76,92,0.04) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-subtle); }
+
+  /* Inputs */
+  .input {
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 15px;
+    color: var(--color-text);
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(15,76,92,0.08);
+  }
+  .input-lg {
+    font-size: 24px;
+    font-weight: 600;
+    padding: 14px 16px;
+    font-family: 'Fraunces', serif;
+    letter-spacing: -0.02em;
+  }
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--color-primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-primary:disabled {
+    background: var(--color-border-strong);
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+  }
+  .btn-secondary:hover { background: var(--color-bg-2); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+  .btn-ghost:hover {
+    background: var(--color-bg-2);
+    color: var(--color-text);
+  }
+  .btn-danger {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+  .btn-danger:hover {
+    background: var(--color-danger);
+    color: white;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fadeIn 0.3s ease; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin { animation: spin 0.8s linear infinite; }
+
+  /* Tabs */
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .tab:hover { color: var(--color-text); }
+  .tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    z-index: 100;
+    animation: slideUp 0.3s ease;
+  }
+
+  /* Person color chip */
+  .color-chip {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .color-chip.selected {
+    border-color: var(--color-text);
+    transform: scale(1.1);
+  }
+
+  /* Mobile niceties */
+  @media (max-width: 640px) {
+    .input-lg { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+const PERSON_COLORS = [
+  { name: 'Teal', value: '#0F4C5C' },
+  { name: 'Burgundy', value: '#9D2933' },
+  { name: 'Gold', value: '#C8A45C' },
+  { name: 'Forest', value: '#2D6A4F' },
+  { name: 'Plum', value: '#6B3465' },
+  { name: 'Rust', value: '#C1502E' },
+  { name: 'Navy', value: '#1E3A5F' },
+  { name: 'Olive', value: '#6B7B3D' }
+];
+
+const CHART_COLORS = ['#0F4C5C', '#C8A45C', '#9D2933', '#2D6A4F', '#6B3465', '#C1502E', '#1E3A5F', '#6B7B3D', '#D08C32', '#5C7A89'];
+
+const DEFAULT_CATEGORIES = [
+  'Alimentación',
+  'Transporte',
+  'Suscripciones',
+  'Compras',
+  'Servicios',
+  'Salud',
+  'Educación',
+  'Entretenimiento',
+  'Vivienda',
+  'Otros'
+];
+
+const DEFAULT_PAYMENT_METHODS = [
+  'Tarjeta de Crédito',
+  'Tarjeta de Débito',
+  'Efectivo',
+  'Transferencia'
+];
+
+// =============================================================================
+// API CLIENT (con auth por clave compartida)
+// =============================================================================
+const API = {
+  appKey: null,
+  baseURL: '/api',
+
+  setAppKey(key) {
+    this.appKey = key;
+    localStorage.setItem('fin_app_key', key);
+  },
+  loadAppKey() {
+    this.appKey = localStorage.getItem('fin_app_key');
+    return this.appKey;
+  },
+  clearAppKey() {
+    this.appKey = null;
+    localStorage.removeItem('fin_app_key');
+  },
+
+  async fetchState() {
+    const res = await fetch(`${this.baseURL}/state`, {
+      headers: { 'X-App-Key': this.appKey || '' }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const e = new Error(err.error || `HTTP ${res.status}`);
+      e.status = res.status;
+      throw e;
+    }
+    return res.json();
+  },
+
+  async saveState(payload) {
+    const res = await fetch(`${this.baseURL}/state`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-Key': this.appKey || ''
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const e = new Error(err.error || `HTTP ${res.status}`);
+      e.status = res.status;
+      throw e;
+    }
+    return res.json();
+  }
+};
+
+// Local cache solo para guardar el currentUser (preferencia personal por dispositivo)
+const Storage = {
+  get(key) {
+    try {
+      const raw = localStorage.getItem(`fin_${key}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(`fin_${key}`, JSON.stringify(value));
+    } catch (e) {}
+  }
+};
+
+// =============================================================================
+// STATE
+// =============================================================================
+const State = {
+  config: null,
+  transactions: [],
+  subscriptions: [],
+  currentUser: null,
+  view: 'dashboard',
+  selectedMonth: null,
+  filters: { person: 'all', category: 'all', search: '' },
+  version: 0,
+  updatedAt: null,
+  updatedBy: null,
+  syncStatus: 'idle', // idle | loading | saving | error | offline
+  syncError: null,
+  loaded: false,
+
+  async loadFromAPI() {
+    try {
+      this.syncStatus = 'loading';
+      const data = await API.fetchState();
+      this.config = data.config;
+      this.transactions = data.transactions || [];
+      this.subscriptions = data.subscriptions || [];
+      this.version = data.version || 0;
+      this.updatedAt = data.updatedAt;
+      this.updatedBy = data.updatedBy;
+      this.syncStatus = 'idle';
+      this.loaded = true;
+
+      // Restaurar preferencia local del usuario actual
+      const localUser = Storage.get('currentUser');
+      if (this.config && this.config.persons.length > 0) {
+        if (localUser && this.config.persons.find(p => p.id === localUser)) {
+          this.currentUser = localUser;
+        } else {
+          this.currentUser = this.config.persons[0].id;
+        }
+      }
+      if (!this.selectedMonth) this.selectedMonth = monthKey(today());
+      return true;
+    } catch (err) {
+      this.syncStatus = 'error';
+      this.syncError = err.message;
+      this.loaded = true;
+      throw err;
+    }
+  },
+
+  async saveToAPI() {
+    try {
+      this.syncStatus = 'saving';
+      updateSyncIndicator();
+      const result = await API.saveState({
+        config: this.config,
+        transactions: this.transactions,
+        subscriptions: this.subscriptions,
+        version: this.version,
+        updatedBy: this.currentUser
+      });
+      this.version = result.version;
+      this.updatedAt = result.updatedAt;
+      this.syncStatus = 'idle';
+      this.syncError = null;
+      updateSyncIndicator();
+      return true;
+    } catch (err) {
+      this.syncStatus = 'error';
+      this.syncError = err.message;
+      updateSyncIndicator();
+      showToast('Error al guardar: ' + err.message, 'error');
+      throw err;
+    }
+  },
+
+  setCurrentUser(id) {
+    this.currentUser = id;
+    Storage.set('currentUser', id);
+  },
+
+  // Aliases retrocompatibles — todos llaman a saveToAPI (fire-and-forget)
+  saveConfig() { this.saveToAPI(); },
+  saveTransactions() { this.saveToAPI(); },
+  saveSubscriptions() { this.saveToAPI(); },
+  saveCurrentUser() { Storage.set('currentUser', this.currentUser); }
+};
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+function uid(prefix = 'id') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+function fmt(amount) {
+  if (amount === null || amount === undefined || isNaN(amount)) return '$0';
+  const n = Math.round(amount);
+  return '$' + n.toLocaleString('es-CL');
+}
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+function monthKey(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function monthLabel(key) {
+  const [y, m] = key.split('-');
+  return `${MONTHS[parseInt(m) - 1]} ${y}`;
+}
+function addMonths(dateStr, months) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split('T')[0];
+}
+function getPerson(id) {
+  if (!State.config) return null;
+  if (id === 'shared') return { id: 'shared', name: 'Compartido', color: '#9A9A9A', income: 0 };
+  return State.config.persons.find(p => p.id === id) || null;
+}
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+}
+function showToast(msg, type = 'success') {
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.style.background = type === 'success' ? 'var(--color-success)' : 'var(--color-danger)';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 2800);
+}
+function confirm2(msg) {
+  return window.confirm(msg);
+}
+
+// =============================================================================
+// RENDER ROOT
+// =============================================================================
+function render() {
+  const root = document.getElementById('app');
+  if (!State.config || State.config.persons.length === 0) {
+    root.innerHTML = renderSetup();
+    bindSetup();
+  } else {
+    root.innerHTML = renderApp();
+    bindApp();
+    updateSyncIndicator();
+  }
+  // Render Lucide icons
+  if (window.lucide) lucide.createIcons();
+}
+
+// =============================================================================
+// SETUP WIZARD
+// =============================================================================
+const Setup = {
+  step: 1,
+  data: {
+    persons: [],
+    categories: [...DEFAULT_CATEGORIES],
+    paymentMethods: [...DEFAULT_PAYMENT_METHODS]
+  },
+  draftPerson: { name: '', income: '', color: PERSON_COLORS[0].value }
+};
+
+function renderSetup() {
+  return `
+    <div class="min-h-screen flex items-center justify-center p-4 texture-paper">
+      <div class="w-full max-w-2xl animate-slide-up">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style="background: var(--color-primary);">
+            <i data-lucide="wallet" class="w-8 h-8 text-white"></i>
+          </div>
+          <h1 class="font-display text-4xl font-bold mb-2">Finanzas</h1>
+          <p class="text-lg" style="color: var(--color-text-muted);">Tu sistema personal de gestión de gastos</p>
+        </div>
+
+        <!-- Progress -->
+        <div class="card p-2 mb-6">
+          <div class="flex gap-2">
+            ${[1, 2, 3].map(i => `
+              <div class="flex-1 h-2 rounded-full transition-all"
+                   style="background: ${i <= Setup.step ? 'var(--color-primary)' : 'var(--color-border)'};"></div>
+            `).join('')}
+          </div>
+          <p class="text-xs text-center mt-2" style="color: var(--color-text-muted);">
+            Paso ${Setup.step} de 3
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div class="card p-6 lg:p-8">
+          ${Setup.step === 1 ? renderSetupStep1() : ''}
+          ${Setup.step === 2 ? renderSetupStep2() : ''}
+          ${Setup.step === 3 ? renderSetupStep3() : ''}
+        </div>
+
+        <p class="text-center text-xs mt-6" style="color: var(--color-text-subtle);">
+          Tus datos se guardan localmente en tu navegador
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function renderSetupStep1() {
+  return `
+    <div>
+      <h2 class="font-display text-2xl font-bold mb-2">¿Quiénes registrarán gastos?</h2>
+      <p class="mb-6" style="color: var(--color-text-muted);">
+        Agrega al menos una persona. Puedes agregar todas las que quieras (pareja, familia, roomies, etc.)
+      </p>
+
+      <!-- Lista de personas agregadas -->
+      ${Setup.data.persons.length > 0 ? `
+        <div class="space-y-2 mb-6">
+          ${Setup.data.persons.map((p, i) => `
+            <div class="flex items-center gap-3 p-3 rounded-lg" style="background: var(--color-bg-2);">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-white text-lg"
+                   style="background: ${p.color};">
+                ${escapeHtml(p.name.charAt(0).toUpperCase())}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold truncate">${escapeHtml(p.name)}</p>
+                <p class="text-sm number" style="color: var(--color-text-muted);">
+                  Ingreso: ${fmt(p.income)}
+                </p>
+              </div>
+              <button data-action="remove-person" data-idx="${i}" class="btn btn-ghost p-2">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Formulario nueva persona -->
+      <div class="border rounded-xl p-4" style="border-color: var(--color-border); background: var(--color-bg-2);">
+        <p class="font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          Agregar persona
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+              NOMBRE
+            </label>
+            <input type="text" id="setup-person-name" class="input"
+                   placeholder="Ej: María, Juan…"
+                   value="${escapeHtml(Setup.draftPerson.name)}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+              INGRESO MENSUAL (CLP)
+            </label>
+            <input type="number" id="setup-person-income" class="input"
+                   placeholder="0"
+                   value="${Setup.draftPerson.income}">
+            <p class="text-xs mt-1" style="color: var(--color-text-subtle);">
+              Puede ser $0 si aún no la conoces — se edita después
+            </p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-2" style="color: var(--color-text-muted);">
+              COLOR PARA GRÁFICOS
+            </label>
+            <div class="flex flex-wrap gap-2">
+              ${PERSON_COLORS.map(c => `
+                <div class="color-chip ${Setup.draftPerson.color === c.value ? 'selected' : ''}"
+                     data-action="select-color"
+                     data-color="${c.value}"
+                     style="background: ${c.value};"
+                     title="${c.name}"></div>
+              `).join('')}
+            </div>
+          </div>
+          <button id="setup-add-person" class="btn btn-primary w-full">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Agregar persona
+          </button>
+        </div>
+      </div>
+
+      <!-- Navegación -->
+      <div class="flex justify-end gap-2 mt-6 pt-6 border-t" style="border-color: var(--color-border);">
+        <button data-action="setup-next"
+                class="btn btn-primary"
+                ${Setup.data.persons.length === 0 ? 'disabled' : ''}>
+          Siguiente
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSetupStep2() {
+  return `
+    <div>
+      <h2 class="font-display text-2xl font-bold mb-2">Categorías de gasto</h2>
+      <p class="mb-6" style="color: var(--color-text-muted);">
+        Estas son las sugeridas. Quita las que no uses y agrega las tuyas.
+      </p>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        ${Setup.data.categories.map((c, i) => `
+          <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                style="background: var(--color-primary-soft); color: var(--color-primary);">
+            ${escapeHtml(c)}
+            <button data-action="remove-category" data-idx="${i}" class="hover:opacity-70">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </span>
+        `).join('')}
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="setup-new-category" class="input flex-1"
+               placeholder="Agregar categoría custom...">
+        <button data-action="add-category" class="btn btn-secondary">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex justify-between gap-2 mt-6 pt-6 border-t" style="border-color: var(--color-border);">
+        <button data-action="setup-back" class="btn btn-secondary">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          Atrás
+        </button>
+        <button data-action="setup-next" class="btn btn-primary"
+                ${Setup.data.categories.length === 0 ? 'disabled' : ''}>
+          Siguiente
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSetupStep3() {
+  return `
+    <div>
+      <h2 class="font-display text-2xl font-bold mb-2">Medios de pago</h2>
+      <p class="mb-6" style="color: var(--color-text-muted);">
+        ¿Con qué pagas tus gastos? (Tarjetas, efectivo, etc.)
+      </p>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        ${Setup.data.paymentMethods.map((m, i) => `
+          <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                style="background: var(--color-accent-soft); color: var(--color-accent);">
+            ${escapeHtml(m)}
+            <button data-action="remove-method" data-idx="${i}" class="hover:opacity-70">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </span>
+        `).join('')}
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="setup-new-method" class="input flex-1"
+               placeholder="Ej: Banco Estado, Sodexo, Mercado Pago...">
+        <button data-action="add-method" class="btn btn-secondary">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex justify-between gap-2 mt-6 pt-6 border-t" style="border-color: var(--color-border);">
+        <button data-action="setup-back" class="btn btn-secondary">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          Atrás
+        </button>
+        <button data-action="setup-finish" class="btn btn-primary"
+                ${Setup.data.paymentMethods.length === 0 ? 'disabled' : ''}>
+          <i data-lucide="check" class="w-4 h-4"></i>
+          Finalizar y empezar
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function bindSetup() {
+  // Inputs
+  const nameInput = document.getElementById('setup-person-name');
+  if (nameInput) {
+    nameInput.addEventListener('input', e => Setup.draftPerson.name = e.target.value);
+  }
+  const incomeInput = document.getElementById('setup-person-income');
+  if (incomeInput) {
+    incomeInput.addEventListener('input', e => Setup.draftPerson.income = e.target.value);
+  }
+  const newCatInput = document.getElementById('setup-new-category');
+  if (newCatInput) {
+    newCatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addCategoryFromInput();
+      }
+    });
+  }
+  const newMethodInput = document.getElementById('setup-new-method');
+  if (newMethodInput) {
+    newMethodInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addMethodFromInput();
+      }
+    });
+  }
+  const addPersonBtn = document.getElementById('setup-add-person');
+  if (addPersonBtn) {
+    addPersonBtn.addEventListener('click', addPersonFromForm);
+  }
+
+  // Action delegation
+  document.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', handleSetupAction);
+  });
+}
+
+function handleSetupAction(e) {
+  const action = e.currentTarget.dataset.action;
+  const idx = parseInt(e.currentTarget.dataset.idx);
+
+  switch (action) {
+    case 'select-color':
+      Setup.draftPerson.color = e.currentTarget.dataset.color;
+      render();
+      break;
+    case 'remove-person':
+      Setup.data.persons.splice(idx, 1);
+      render();
+      break;
+    case 'add-category':
+      addCategoryFromInput();
+      break;
+    case 'remove-category':
+      Setup.data.categories.splice(idx, 1);
+      render();
+      break;
+    case 'add-method':
+      addMethodFromInput();
+      break;
+    case 'remove-method':
+      Setup.data.paymentMethods.splice(idx, 1);
+      render();
+      break;
+    case 'setup-next':
+      Setup.step = Math.min(Setup.step + 1, 3);
+      render();
+      break;
+    case 'setup-back':
+      Setup.step = Math.max(Setup.step - 1, 1);
+      render();
+      break;
+    case 'setup-finish':
+      finishSetup();
+      break;
+  }
+}
+
+function addPersonFromForm() {
+  const name = Setup.draftPerson.name.trim();
+  if (!name) {
+    showToast('Ingresa un nombre', 'error');
+    return;
+  }
+  const income = parseFloat(Setup.draftPerson.income) || 0;
+  Setup.data.persons.push({
+    id: uid('p'),
+    name,
+    income,
+    color: Setup.draftPerson.color
+  });
+  Setup.draftPerson = {
+    name: '',
+    income: '',
+    color: PERSON_COLORS[(Setup.data.persons.length) % PERSON_COLORS.length].value
+  };
+  render();
+}
+
+function addCategoryFromInput() {
+  const input = document.getElementById('setup-new-category');
+  if (!input) return;
+  const v = input.value.trim();
+  if (v && !Setup.data.categories.includes(v)) {
+    Setup.data.categories.push(v);
+    input.value = '';
+    render();
+  }
+}
+
+function addMethodFromInput() {
+  const input = document.getElementById('setup-new-method');
+  if (!input) return;
+  const v = input.value.trim();
+  if (v && !Setup.data.paymentMethods.includes(v)) {
+    Setup.data.paymentMethods.push(v);
+    input.value = '';
+    render();
+  }
+}
+
+async function finishSetup() {
+  State.config = {
+    persons: Setup.data.persons,
+    categories: Setup.data.categories,
+    paymentMethods: Setup.data.paymentMethods,
+    createdAt: new Date().toISOString()
+  };
+  State.setCurrentUser(State.config.persons[0].id);
+  try {
+    await State.saveToAPI();
+    showToast('✓ Sistema listo');
+    render();
+  } catch (err) {
+    showToast('Error guardando configuración', 'error');
+  }
+}
+
+// =============================================================================
+// MAIN APP SHELL
+// =============================================================================
+function renderApp() {
+  const user = getPerson(State.currentUser);
+  return `
+    <div class="min-h-screen">
+      <!-- Header -->
+      <header class="sticky top-0 z-30 border-b" style="background: var(--color-bg); border-color: var(--color-border);">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background: var(--color-primary);">
+              <i data-lucide="wallet" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <p class="font-display font-bold text-lg leading-tight">Finanzas</p>
+              <p class="text-xs leading-tight" style="color: var(--color-text-muted);">
+                ${State.config.persons.length} ${State.config.persons.length === 1 ? 'persona' : 'personas'}
+              </p>
+            </div>
+          </div>
+
+          <!-- User selector + sync indicator -->
+          <div class="flex items-center gap-2">
+            <div id="sync-indicator"></div>
+            <div class="relative">
+            <button data-action="toggle-user-menu" class="flex items-center gap-2 px-3 py-2 rounded-lg"
+                    style="background: var(--color-surface); border: 1px solid var(--color-border);">
+              <div class="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold"
+                   style="background: ${user.color};">
+                ${escapeHtml(user.name.charAt(0).toUpperCase())}
+              </div>
+              <span class="text-sm font-medium">${escapeHtml(user.name)}</span>
+              <i data-lucide="chevron-down" class="w-4 h-4" style="color: var(--color-text-muted);"></i>
+            </button>
+            <div id="user-menu" class="hidden absolute right-0 mt-2 card p-1 min-w-[180px] shadow-lg z-50">
+              ${State.config.persons.map(p => `
+                <button data-action="switch-user" data-id="${p.id}"
+                        class="flex items-center gap-2 w-full px-3 py-2 rounded-md text-left hover:bg-gray-50 text-sm">
+                  <div class="w-5 h-5 rounded flex items-center justify-center text-white text-xs font-bold"
+                       style="background: ${p.color};">
+                    ${escapeHtml(p.name.charAt(0).toUpperCase())}
+                  </div>
+                  <span>${escapeHtml(p.name)}</span>
+                  ${p.id === State.currentUser ? '<i data-lucide="check" class="w-4 h-4 ml-auto" style="color: var(--color-primary);"></i>' : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <nav class="max-w-6xl mx-auto px-2 flex gap-1 overflow-x-auto">
+          ${[
+            { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+            { id: 'register', label: 'Registrar', icon: 'plus' },
+            { id: 'transactions', label: 'Movimientos', icon: 'list' },
+            { id: 'subscriptions', label: 'Suscripciones', icon: 'repeat' },
+            { id: 'installments', label: 'Cuotas', icon: 'credit-card' },
+            { id: 'config', label: 'Configuración', icon: 'settings' }
+          ].map(t => `
+            <button data-action="switch-view" data-view="${t.id}" class="tab ${State.view === t.id ? 'active' : ''}">
+              <i data-lucide="${t.icon}" class="w-4 h-4"></i>
+              <span>${t.label}</span>
+            </button>
+          `).join('')}
+        </nav>
+      </header>
+
+      <!-- Content -->
+      <main class="max-w-6xl mx-auto p-4 pb-20 animate-fade-in">
+        ${State.view === 'dashboard' ? renderDashboard() : ''}
+        ${State.view === 'register' ? renderRegister() : ''}
+        ${State.view === 'transactions' ? renderTransactions() : ''}
+        ${State.view === 'subscriptions' ? renderSubscriptions() : ''}
+        ${State.view === 'installments' ? renderInstallments() : ''}
+        ${State.view === 'config' ? renderConfig() : ''}
+      </main>
+    </div>
+  `;
+}
+
+function bindApp() {
+  document.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', handleAppAction);
+  });
+
+  // Specific bindings per view
+  if (State.view === 'register') bindRegister();
+  if (State.view === 'transactions') bindTransactions();
+  if (State.view === 'subscriptions') bindSubscriptions();
+  if (State.view === 'config') bindConfig();
+  if (State.view === 'dashboard') renderDashboardCharts();
+
+  // Click outside user menu
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('user-menu');
+    if (!menu) return;
+    if (!e.target.closest('[data-action="toggle-user-menu"]') && !menu.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
+}
+
+function handleAppAction(e) {
+  const action = e.currentTarget.dataset.action;
+  const ds = e.currentTarget.dataset;
+
+  switch (action) {
+    case 'switch-view':
+      State.view = ds.view;
+      render();
+      break;
+    case 'toggle-user-menu':
+      e.stopPropagation();
+      document.getElementById('user-menu').classList.toggle('hidden');
+      break;
+    case 'switch-user':
+      State.setCurrentUser(ds.id);
+      render();
+      break;
+    case 'change-month':
+      changeMonth(parseInt(ds.delta));
+      break;
+    case 'delete-tx':
+      deleteTransaction(ds.id);
+      break;
+    case 'delete-sub':
+      deleteSubscription(ds.id);
+      break;
+    case 'toggle-sub':
+      toggleSubscription(ds.id);
+      break;
+    case 'generate-sub-month':
+      generateSubscriptionMonth(ds.id);
+      break;
+    case 'remove-config-person':
+      removeConfigPerson(ds.id);
+      break;
+    case 'remove-config-category':
+      removeConfigCategory(ds.cat);
+      break;
+    case 'remove-config-method':
+      removeConfigMethod(ds.method);
+      break;
+    case 'export-data':
+      exportData();
+      break;
+    case 'export-excel':
+      exportToExcel();
+      break;
+    case 'import-json':
+      importJSON();
+      break;
+    case 'logout':
+      logout();
+      break;
+    case 'reset-data':
+      resetAllData();
+      break;
+    case 'add-config-person':
+      addConfigPerson();
+      break;
+  }
+}
+
+// =============================================================================
+// DASHBOARD
+// =============================================================================
+function renderDashboard() {
+  const txns = State.transactions.filter(t => monthKey(t.date) === State.selectedMonth);
+  const totalSpent = txns.reduce((s, t) => s + t.amount, 0);
+  const totalIncome = State.config.persons.reduce((s, p) => s + p.income, 0);
+  const balance = totalIncome - totalSpent;
+  const pct = totalIncome > 0 ? (totalSpent / totalIncome) * 100 : 0;
+  const balanceColor = balance >= 0 ? 'success' : 'danger';
+  const pctColor = pct < 70 ? 'success' : pct < 90 ? 'warning' : 'danger';
+
+  // Próximas cuotas (próximos 30 días)
+  const now = new Date();
+  const in30 = new Date();
+  in30.setDate(in30.getDate() + 30);
+  const upcoming = State.transactions
+    .filter(t => t.installmentInfo)
+    .filter(t => {
+      const d = new Date(t.date + 'T00:00:00');
+      return d >= now && d <= in30;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5);
+
+  return `
+    <div class="space-y-4">
+      <!-- Month selector -->
+      <div class="card p-3 flex items-center justify-between">
+        <button data-action="change-month" data-delta="-1" class="btn btn-ghost p-2">
+          <i data-lucide="chevron-left" class="w-5 h-5"></i>
+        </button>
+        <h2 class="font-display text-xl font-bold">${monthLabel(State.selectedMonth)}</h2>
+        <button data-action="change-month" data-delta="1" class="btn btn-ghost p-2">
+          <i data-lucide="chevron-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${kpiCard('Ingresos', fmt(totalIncome), 'arrow-down-right', 'success')}
+        ${kpiCard('Gastado', fmt(totalSpent), 'arrow-up-right', 'danger')}
+        ${kpiCard('Balance', fmt(balance), 'dollar-sign', balanceColor)}
+        ${kpiCard('% Gastado', `${pct.toFixed(1)}%`, 'trending-up', pctColor)}
+      </div>
+
+      <!-- Progress bar -->
+      ${totalIncome > 0 ? `
+        <div class="card p-4">
+          <div class="flex justify-between text-sm mb-2">
+            <span style="color: var(--color-text-muted);">Presupuesto del mes</span>
+            <span class="font-semibold number">${fmt(totalSpent)} / ${fmt(totalIncome)}</span>
+          </div>
+          <div class="h-3 rounded-full overflow-hidden" style="background: var(--color-border);">
+            <div class="h-full transition-all" style="width: ${Math.min(pct, 100)}%; background: var(--color-${pctColor});"></div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Charts row -->
+      ${txns.length > 0 ? `
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div class="card p-4">
+            <h3 class="font-semibold mb-4">Gastos por categoría</h3>
+            <div class="relative" style="height: 240px;">
+              <canvas id="chart-categories"></canvas>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold mb-4">Gastos por persona</h3>
+            <div class="relative" style="height: 240px;">
+              <canvas id="chart-persons"></canvas>
+            </div>
+          </div>
+        </div>
+      ` : `
+        <div class="card p-8 text-center">
+          <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
+          <p style="color: var(--color-text-muted);">Aún no hay gastos registrados este mes</p>
+          <button data-action="switch-view" data-view="register" class="btn btn-primary mt-4">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Registrar primer gasto
+          </button>
+        </div>
+      `}
+
+      <!-- Trend -->
+      ${State.transactions.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-4">Tendencia últimos 6 meses</h3>
+          <div class="relative" style="height: 220px;">
+            <canvas id="chart-trend"></canvas>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Upcoming -->
+      ${upcoming.length > 0 ? `
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3 flex items-center gap-2">
+            <i data-lucide="credit-card" class="w-5 h-5" style="color: var(--color-primary);"></i>
+            Próximas cuotas (30 días)
+          </h3>
+          <div class="space-y-2">
+            ${upcoming.map(t => {
+              const p = getPerson(t.personId);
+              return `
+                <div class="flex items-center gap-3 p-3 rounded-lg" style="background: var(--color-bg-2);">
+                  <div class="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold"
+                       style="background: ${p.color};">
+                    ${escapeHtml(p.name.charAt(0).toUpperCase())}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-sm truncate">${escapeHtml(t.description)}</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">
+                      Cuota ${t.installmentInfo.number}/${t.installmentInfo.total} · ${new Date(t.date + 'T00:00:00').toLocaleDateString('es-CL')}
+                    </p>
+                  </div>
+                  <span class="font-display font-bold number" style="color: var(--color-primary);">
+                    ${fmt(t.amount)}
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function kpiCard(label, value, icon, color) {
+  return `
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs uppercase tracking-wider" style="color: var(--color-text-muted);">${label}</span>
+        <div class="w-7 h-7 rounded-md flex items-center justify-center"
+             style="background: var(--color-${color}-soft); color: var(--color-${color});">
+          <i data-lucide="${icon}" class="w-4 h-4"></i>
+        </div>
+      </div>
+      <p class="font-display text-2xl font-bold number">${value}</p>
+    </div>
+  `;
+}
+
+function changeMonth(delta) {
+  const [y, m] = State.selectedMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  State.selectedMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  render();
+}
+
+function renderDashboardCharts() {
+  const txns = State.transactions.filter(t => monthKey(t.date) === State.selectedMonth);
+  if (txns.length === 0) return;
+
+  // Categorías
+  const byCat = {};
+  txns.forEach(t => byCat[t.category] = (byCat[t.category] || 0) + t.amount);
+  const catEntries = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+
+  const ctxCat = document.getElementById('chart-categories');
+  if (ctxCat) {
+    new Chart(ctxCat, {
+      type: 'doughnut',
+      data: {
+        labels: catEntries.map(e => e[0]),
+        datasets: [{
+          data: catEntries.map(e => e[1]),
+          backgroundColor: catEntries.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { font: { family: 'DM Sans', size: 12 }, padding: 12, boxWidth: 12 }
+          },
+          tooltip: {
+            callbacks: { label: (c) => ` ${c.label}: ${fmt(c.parsed)}` }
+          }
+        },
+        cutout: '60%'
+      }
+    });
+  }
+
+  // Personas
+  const byPerson = {};
+  txns.forEach(t => {
+    const p = getPerson(t.personId);
+    const key = p ? p.name : 'Otro';
+    byPerson[key] = (byPerson[key] || 0) + t.amount;
+  });
+  const personEntries = Object.entries(byPerson);
+  const personColors = personEntries.map(([name]) => {
+    const p = State.config.persons.find(pp => pp.name === name);
+    return p ? p.color : '#9A9A9A';
+  });
+
+  const ctxP = document.getElementById('chart-persons');
+  if (ctxP) {
+    new Chart(ctxP, {
+      type: 'bar',
+      data: {
+        labels: personEntries.map(e => e[0]),
+        datasets: [{
+          data: personEntries.map(e => e[1]),
+          backgroundColor: personColors,
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } }
+        },
+        scales: {
+          y: { ticks: { callback: (v) => '$' + (v/1000).toFixed(0) + 'k', font: { family: 'DM Sans' } }, grid: { color: '#E8E2D8' } },
+          x: { grid: { display: false }, ticks: { font: { family: 'DM Sans' } } }
+        }
+      }
+    });
+  }
+
+  // Tendencia
+  const trend = [];
+  const [y0, m0] = State.selectedMonth.split('-').map(Number);
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(y0, m0 - 1 - i, 1);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const total = State.transactions
+      .filter(t => monthKey(t.date) === k)
+      .reduce((s, t) => s + t.amount, 0);
+    trend.push({ label: MONTHS_SHORT[d.getMonth()], total });
+  }
+
+  const ctxT = document.getElementById('chart-trend');
+  if (ctxT) {
+    new Chart(ctxT, {
+      type: 'line',
+      data: {
+        labels: trend.map(t => t.label),
+        datasets: [{
+          data: trend.map(t => t.total),
+          borderColor: '#0F4C5C',
+          backgroundColor: 'rgba(15,76,92,0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 5,
+          pointBackgroundColor: '#0F4C5C',
+          pointBorderColor: '#FFFFFF',
+          pointBorderWidth: 2,
+          borderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } }
+        },
+        scales: {
+          y: { ticks: { callback: (v) => '$' + (v/1000).toFixed(0) + 'k', font: { family: 'DM Sans' } }, grid: { color: '#E8E2D8' } },
+          x: { grid: { display: false }, ticks: { font: { family: 'DM Sans' } } }
+        }
+      }
+    });
+  }
+}
+
+// =============================================================================
+// REGISTER FORM
+// =============================================================================
+const RegForm = {
+  type: 'unique',
+  date: today(),
+  personId: null,
+  category: '',
+  description: '',
+  amount: '',
+  paymentMethod: '',
+  notes: '',
+  totalInstallments: 3,
+
+  reset() {
+    this.type = 'unique';
+    this.date = today();
+    this.personId = State.currentUser;
+    this.category = State.config.categories[0] || '';
+    this.description = '';
+    this.amount = '';
+    this.paymentMethod = State.config.paymentMethods[0] || '';
+    this.notes = '';
+    this.totalInstallments = 3;
+  }
+};
+
+function renderRegister() {
+  if (!RegForm.personId) RegForm.reset();
+  const personOptions = [
+    ...State.config.persons.map(p => `<option value="${p.id}" ${RegForm.personId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`),
+    `<option value="shared" ${RegForm.personId === 'shared' ? 'selected' : ''}>Compartido</option>`
+  ].join('');
+
+  const installmentMonto = RegForm.amount && RegForm.totalInstallments
+    ? parseFloat(RegForm.amount) / parseInt(RegForm.totalInstallments) : 0;
+
+  return `
+    <div class="max-w-2xl mx-auto">
+      <div class="card p-6">
+        <div class="mb-6">
+          <h2 class="font-display text-2xl font-bold">Registrar Gasto</h2>
+          <p style="color: var(--color-text-muted);">Completa los datos del gasto</p>
+        </div>
+
+        <!-- Tipo -->
+        <div class="grid grid-cols-2 gap-2 mb-5">
+          <button data-form-action="set-type" data-type="unique"
+                  class="p-4 rounded-xl border-2 transition-all"
+                  style="border-color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-border)'};
+                         background: ${RegForm.type === 'unique' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
+            <i data-lucide="receipt" class="w-6 h-6 mx-auto mb-1"
+               style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
+            <span class="block text-sm font-semibold"
+                  style="color: ${RegForm.type === 'unique' ? 'var(--color-primary)' : 'var(--color-text)'};">
+              Pago único
+            </span>
+          </button>
+          <button data-form-action="set-type" data-type="installments"
+                  class="p-4 rounded-xl border-2 transition-all"
+                  style="border-color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-border)'};
+                         background: ${RegForm.type === 'installments' ? 'var(--color-primary-soft)' : 'var(--color-surface)'};">
+            <i data-lucide="credit-card" class="w-6 h-6 mx-auto mb-1"
+               style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text-muted)'};"></i>
+            <span class="block text-sm font-semibold"
+                  style="color: ${RegForm.type === 'installments' ? 'var(--color-primary)' : 'var(--color-text)'};">
+              En cuotas
+            </span>
+          </button>
+        </div>
+
+        <!-- Form -->
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">FECHA</label>
+              <input type="date" id="reg-date" class="input" value="${RegForm.date}">
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">PERSONA</label>
+              <select id="reg-person" class="input">${personOptions}</select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">CATEGORÍA</label>
+              <select id="reg-category" class="input">
+                ${State.config.categories.map(c => `<option ${RegForm.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">MEDIO DE PAGO</label>
+              <select id="reg-method" class="input">
+                ${State.config.paymentMethods.map(m => `<option ${RegForm.paymentMethod === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">DESCRIPCIÓN</label>
+            <input type="text" id="reg-description" class="input"
+                   placeholder="Ej: Supermercado Lider"
+                   value="${escapeHtml(RegForm.description)}">
+          </div>
+
+          ${RegForm.type === 'unique' ? `
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">MONTO (CLP)</label>
+              <input type="number" id="reg-amount" class="input input-lg number"
+                     placeholder="0"
+                     value="${RegForm.amount}">
+            </div>
+          ` : `
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">MONTO TOTAL</label>
+                <input type="number" id="reg-amount" class="input input-lg number"
+                       placeholder="0"
+                       value="${RegForm.amount}">
+              </div>
+              <div>
+                <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">N° CUOTAS</label>
+                <input type="number" id="reg-installments" class="input input-lg number"
+                       min="2" max="48"
+                       value="${RegForm.totalInstallments}">
+              </div>
+            </div>
+            <div id="installment-preview" class="rounded-lg p-3"
+                 style="background: var(--color-primary-soft); display: ${installmentMonto > 0 ? 'block' : 'none'};">
+              <p class="text-sm" style="color: var(--color-primary);">
+                <strong class="font-display" id="installment-amount">${fmt(installmentMonto)}</strong> por mes durante <span id="installment-count">${RegForm.totalInstallments}</span> meses
+              </p>
+            </div>
+          `}
+
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">NOTAS (opcional)</label>
+            <textarea id="reg-notes" class="input" rows="2"
+                      placeholder="Notas adicionales...">${escapeHtml(RegForm.notes)}</textarea>
+          </div>
+
+          <button data-form-action="submit" class="btn btn-primary w-full" style="padding: 14px;">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            Registrar gasto
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateInstallmentPreview() {
+  const amount = parseFloat(RegForm.amount) || 0;
+  const total = parseInt(RegForm.totalInstallments) || 0;
+  const monto = total > 0 ? amount / total : 0;
+  const previewEl = document.getElementById('installment-preview');
+  const amountEl = document.getElementById('installment-amount');
+  const countEl = document.getElementById('installment-count');
+  if (previewEl) previewEl.style.display = (amount > 0 && total > 0) ? 'block' : 'none';
+  if (amountEl) amountEl.textContent = fmt(monto);
+  if (countEl) countEl.textContent = total || '';
+}
+
+function bindRegister() {
+  // Inputs
+  ['reg-date', 'reg-person', 'reg-category', 'reg-method', 'reg-description', 'reg-amount', 'reg-installments', 'reg-notes']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        if (id === 'reg-date') RegForm.date = el.value;
+        if (id === 'reg-person') RegForm.personId = el.value;
+        if (id === 'reg-category') RegForm.category = el.value;
+        if (id === 'reg-method') RegForm.paymentMethod = el.value;
+        if (id === 'reg-description') RegForm.description = el.value;
+        if (id === 'reg-amount') {
+          RegForm.amount = el.value;
+          if (RegForm.type === 'installments') {
+            updateInstallmentPreview();
+          }
+        }
+        if (id === 'reg-installments') {
+          RegForm.totalInstallments = el.value;
+          updateInstallmentPreview();
+        }
+        if (id === 'reg-notes') RegForm.notes = el.value;
+      });
+    });
+
+  // Form actions
+  document.querySelectorAll('[data-form-action]').forEach(el => {
+    el.addEventListener('click', e => {
+      const a = e.currentTarget.dataset.formAction;
+      if (a === 'set-type') {
+        RegForm.type = e.currentTarget.dataset.type;
+        render();
+      }
+      if (a === 'submit') submitRegister();
+    });
+  });
+}
+
+function submitRegister() {
+  // Read latest values
+  RegForm.date = document.getElementById('reg-date').value;
+  RegForm.personId = document.getElementById('reg-person').value;
+  RegForm.category = document.getElementById('reg-category').value;
+  RegForm.paymentMethod = document.getElementById('reg-method').value;
+  RegForm.description = document.getElementById('reg-description').value.trim();
+  RegForm.amount = document.getElementById('reg-amount').value;
+  RegForm.notes = document.getElementById('reg-notes').value;
+  if (RegForm.type === 'installments') {
+    RegForm.totalInstallments = document.getElementById('reg-installments').value;
+  }
+
+  if (!RegForm.description) {
+    showToast('Ingresa una descripción', 'error');
+    return;
+  }
+  const amt = parseFloat(RegForm.amount);
+  if (!amt || amt <= 0) {
+    showToast('Ingresa un monto válido', 'error');
+    return;
+  }
+
+  if (RegForm.type === 'installments') {
+    const total = parseInt(RegForm.totalInstallments);
+    if (!total || total < 2) {
+      showToast('Mínimo 2 cuotas', 'error');
+      return;
+    }
+    const grupoId = uid('grp');
+    const monto = Math.round(amt / total);
+    for (let i = 0; i < total; i++) {
+      State.transactions.push({
+        id: uid('t'),
+        date: addMonths(RegForm.date, i),
+        personId: RegForm.personId,
+        category: RegForm.category,
+        description: RegForm.description,
+        amount: monto,
+        paymentMethod: RegForm.paymentMethod,
+        notes: RegForm.notes,
+        type: 'installment',
+        installmentInfo: {
+          groupId: grupoId,
+          number: i + 1,
+          total,
+          totalAmount: amt
+        },
+        createdBy: State.currentUser,
+        createdAt: new Date().toISOString()
+      });
+    }
+    showToast(`✓ ${total} cuotas creadas`);
+  } else {
+    State.transactions.push({
+      id: uid('t'),
+      date: RegForm.date,
+      personId: RegForm.personId,
+      category: RegForm.category,
+      description: RegForm.description,
+      amount: amt,
+      paymentMethod: RegForm.paymentMethod,
+      notes: RegForm.notes,
+      type: 'unique',
+      createdBy: State.currentUser,
+      createdAt: new Date().toISOString()
+    });
+    showToast('✓ Gasto registrado');
+  }
+
+  State.saveTransactions();
+  RegForm.reset();
+  State.view = 'dashboard';
+  render();
+}
+
+function deleteTransaction(id) {
+  const tx = State.transactions.find(t => t.id === id);
+  if (!tx) return;
+  if (tx.installmentInfo?.groupId) {
+    if (confirm2('¿Borrar TODAS las cuotas de este gasto?\n\n[Aceptar] = Borrar todas\n[Cancelar] = Solo esta cuota')) {
+      State.transactions = State.transactions.filter(t => t.installmentInfo?.groupId !== tx.installmentInfo.groupId);
+    } else {
+      State.transactions = State.transactions.filter(t => t.id !== id);
+    }
+  } else {
+    if (!confirm2('¿Eliminar este gasto?')) return;
+    State.transactions = State.transactions.filter(t => t.id !== id);
+  }
+  State.saveTransactions();
+  showToast('✓ Eliminado');
+  render();
+}
+
+// =============================================================================
+// TRANSACTIONS LIST
+// =============================================================================
+function renderTransactions() {
+  let filtered = [...State.transactions];
+  if (State.filters.person !== 'all') filtered = filtered.filter(t => t.personId === State.filters.person);
+  if (State.filters.category !== 'all') filtered = filtered.filter(t => t.category === State.filters.category);
+  if (State.filters.search) {
+    const q = State.filters.search.toLowerCase();
+    filtered = filtered.filter(t => t.description.toLowerCase().includes(q));
+  }
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+  const total = filtered.reduce((s, t) => s + t.amount, 0);
+
+  return `
+    <div class="space-y-4">
+      <!-- Filters -->
+      <div class="card p-4">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+          <select id="filter-person" class="input">
+            <option value="all">Todas las personas</option>
+            ${State.config.persons.map(p => `<option value="${p.id}" ${State.filters.person === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+            <option value="shared" ${State.filters.person === 'shared' ? 'selected' : ''}>Compartido</option>
+          </select>
+          <select id="filter-category" class="input">
+            <option value="all">Todas las categorías</option>
+            ${State.config.categories.map(c => `<option ${State.filters.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style="color: var(--color-text-muted);"></i>
+            <input type="text" id="filter-search" class="input pl-9" placeholder="Buscar..." value="${escapeHtml(State.filters.search)}">
+          </div>
+        </div>
+        <div class="flex justify-between text-sm pt-3 border-t" style="border-color: var(--color-border);">
+          <span style="color: var(--color-text-muted);">${filtered.length} movimientos</span>
+          <span class="font-display font-bold number">Total: ${fmt(total)}</span>
+        </div>
+      </div>
+
+      <!-- List -->
+      ${filtered.length === 0 ? `
+        <div class="card p-8 text-center">
+          <i data-lucide="receipt" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
+          <p style="color: var(--color-text-muted);">Sin movimientos</p>
+        </div>
+      ` : `
+        <div class="card overflow-hidden">
+          ${filtered.map((t, i) => {
+            const p = getPerson(t.personId);
+            return `
+              <div class="p-4 flex items-start gap-3 ${i !== filtered.length - 1 ? 'border-b' : ''}"
+                   style="border-color: var(--color-border);">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0"
+                     style="background: ${p ? p.color : '#9A9A9A'};">
+                  ${escapeHtml(p ? p.name.charAt(0).toUpperCase() : '?')}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <span class="font-semibold">${escapeHtml(t.description)}</span>
+                    ${t.installmentInfo ? `
+                      <span class="text-xs px-2 py-0.5 rounded-full"
+                            style="background: var(--color-primary-soft); color: var(--color-primary);">
+                        Cuota ${t.installmentInfo.number}/${t.installmentInfo.total}
+                      </span>
+                    ` : ''}
+                    ${t.type === 'subscription' ? `
+                      <span class="text-xs px-2 py-0.5 rounded-full"
+                            style="background: var(--color-accent-soft); color: var(--color-accent);">
+                        Suscripción
+                      </span>
+                    ` : ''}
+                  </div>
+                  <p class="text-xs flex flex-wrap gap-1.5" style="color: var(--color-text-muted);">
+                    <span>${new Date(t.date + 'T00:00:00').toLocaleDateString('es-CL')}</span>
+                    <span>·</span>
+                    <span>${escapeHtml(p ? p.name : '?')}</span>
+                    <span>·</span>
+                    <span>${escapeHtml(t.category)}</span>
+                    ${t.paymentMethod ? `<span>·</span><span>${escapeHtml(t.paymentMethod)}</span>` : ''}
+                  </p>
+                  ${t.notes ? `<p class="text-xs italic mt-1" style="color: var(--color-text-subtle);">${escapeHtml(t.notes)}</p>` : ''}
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <p class="font-display font-bold text-lg number">${fmt(t.amount)}</p>
+                  <button data-action="delete-tx" data-id="${t.id}"
+                          class="text-xs hover:underline mt-1 inline-flex items-center gap-1"
+                          style="color: var(--color-danger);">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function bindTransactions() {
+  ['filter-person', 'filter-category', 'filter-search'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      if (id === 'filter-person') State.filters.person = el.value;
+      if (id === 'filter-category') State.filters.category = el.value;
+      if (id === 'filter-search') State.filters.search = el.value;
+      render();
+    });
+  });
+}
+
+// =============================================================================
+// SUBSCRIPTIONS
+// =============================================================================
+const SubForm = {
+  show: false,
+  name: '',
+  amount: '',
+  personId: 'shared',
+  category: 'Suscripciones',
+  paymentDay: 5,
+
+  reset() {
+    this.show = false;
+    this.name = '';
+    this.amount = '';
+    this.personId = 'shared';
+    this.category = State.config.categories.includes('Suscripciones') ? 'Suscripciones' : (State.config.categories[0] || '');
+    this.paymentDay = 5;
+  }
+};
+
+function renderSubscriptions() {
+  const total = State.subscriptions
+    .filter(s => s.active)
+    .reduce((s, sub) => s + sub.amount, 0);
+
+  const personOptions = [
+    ...State.config.persons.map(p => `<option value="${p.id}" ${SubForm.personId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`),
+    `<option value="shared" ${SubForm.personId === 'shared' ? 'selected' : ''}>Compartido</option>`
+  ].join('');
+
+  return `
+    <div class="space-y-4">
+      <!-- Hero -->
+      <div class="rounded-2xl p-6 text-white relative overflow-hidden"
+           style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));">
+        <div class="relative z-10">
+          <p class="text-sm opacity-80 mb-1">Total mensual en suscripciones activas</p>
+          <p class="font-display font-bold text-4xl number">${fmt(total)}</p>
+          <p class="text-sm opacity-80 mt-2">
+            ${State.subscriptions.filter(s => s.active).length} suscripciones activas
+            ${State.subscriptions.filter(s => !s.active).length > 0 ? ` · ${State.subscriptions.filter(s => !s.active).length} pausadas` : ''}
+          </p>
+        </div>
+        <i data-lucide="repeat" class="w-32 h-32 absolute -right-4 -bottom-4 opacity-10"></i>
+      </div>
+
+      <!-- Add button / form -->
+      ${!SubForm.show ? `
+        <button data-form-action="show-sub" class="w-full p-4 rounded-xl border-2 border-dashed font-semibold transition-all hover:bg-white"
+                style="border-color: var(--color-border-strong); color: var(--color-text-muted);">
+          <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
+          Agregar suscripción
+        </button>
+      ` : `
+        <div class="card p-4 space-y-3">
+          <h3 class="font-semibold">Nueva suscripción</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <input type="text" id="sub-name" class="input col-span-2" placeholder="Nombre (Netflix, Spotify...)" value="${escapeHtml(SubForm.name)}">
+            <input type="number" id="sub-amount" class="input" placeholder="Monto mensual" value="${SubForm.amount}">
+            <input type="number" id="sub-day" class="input" placeholder="Día del cobro" min="1" max="31" value="${SubForm.paymentDay}">
+            <select id="sub-person" class="input">${personOptions}</select>
+            <select id="sub-category" class="input">
+              ${State.config.categories.map(c => `<option ${SubForm.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button data-form-action="save-sub" class="btn btn-primary flex-1">Guardar</button>
+            <button data-form-action="cancel-sub" class="btn btn-secondary">Cancelar</button>
+          </div>
+        </div>
+      `}
+
+      <!-- List -->
+      ${State.subscriptions.length === 0 ? `
+        <div class="card p-8 text-center">
+          <i data-lucide="repeat" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
+          <p style="color: var(--color-text-muted);">Sin suscripciones registradas</p>
+        </div>
+      ` : `
+        <div class="space-y-2">
+          ${State.subscriptions.map(s => {
+            const p = getPerson(s.personId);
+            return `
+              <div class="card p-4 flex items-center gap-3 ${!s.active ? 'opacity-60' : ''}">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center"
+                     style="background: ${s.active ? 'var(--color-primary-soft)' : 'var(--color-bg-2)'};
+                            color: ${s.active ? 'var(--color-primary)' : 'var(--color-text-subtle)'};">
+                  <i data-lucide="repeat" class="w-5 h-5"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold truncate">${escapeHtml(s.name)}</p>
+                  <p class="text-xs" style="color: var(--color-text-muted);">
+                    Día ${s.paymentDay} · ${escapeHtml(p ? p.name : '?')} · ${escapeHtml(s.category)}
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="font-display font-bold number">${fmt(s.amount)}</p>
+                  <p class="text-xs" style="color: var(--color-text-muted);">/ mes</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                  ${s.active ? `
+                    <button data-action="generate-sub-month" data-id="${s.id}"
+                            class="btn btn-ghost text-xs px-2 py-1"
+                            style="background: var(--color-success-soft); color: var(--color-success);">
+                      + Mes
+                    </button>
+                  ` : ''}
+                  <button data-action="toggle-sub" data-id="${s.id}"
+                          class="btn btn-ghost text-xs px-2 py-1">
+                    ${s.active ? 'Pausar' : 'Activar'}
+                  </button>
+                  <button data-action="delete-sub" data-id="${s.id}"
+                          class="btn btn-danger text-xs px-2 py-1">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function bindSubscriptions() {
+  document.querySelectorAll('[data-form-action]').forEach(el => {
+    el.addEventListener('click', e => {
+      const a = e.currentTarget.dataset.formAction;
+      if (a === 'show-sub') {
+        SubForm.reset();
+        SubForm.show = true;
+        render();
+      }
+      if (a === 'cancel-sub') {
+        SubForm.show = false;
+        render();
+      }
+      if (a === 'save-sub') saveSubscription();
+    });
+  });
+}
+
+function saveSubscription() {
+  const name = document.getElementById('sub-name').value.trim();
+  const amount = parseFloat(document.getElementById('sub-amount').value);
+  const day = parseInt(document.getElementById('sub-day').value);
+  const personId = document.getElementById('sub-person').value;
+  const category = document.getElementById('sub-category').value;
+
+  if (!name || !amount || amount <= 0) {
+    showToast('Completa nombre y monto válido', 'error');
+    return;
+  }
+
+  State.subscriptions.push({
+    id: uid('s'),
+    name, amount, personId, category,
+    paymentDay: day || 1,
+    active: true,
+    createdAt: today()
+  });
+  State.saveSubscriptions();
+  SubForm.reset();
+  showToast('✓ Suscripción agregada');
+  render();
+}
+
+function toggleSubscription(id) {
+  State.subscriptions = State.subscriptions.map(s =>
+    s.id === id ? { ...s, active: !s.active } : s
+  );
+  State.saveSubscriptions();
+  render();
+}
+
+function deleteSubscription(id) {
+  if (!confirm2('¿Eliminar esta suscripción?')) return;
+  State.subscriptions = State.subscriptions.filter(s => s.id !== id);
+  State.saveSubscriptions();
+  showToast('✓ Eliminada');
+  render();
+}
+
+function generateSubscriptionMonth(id) {
+  const sub = State.subscriptions.find(s => s.id === id);
+  if (!sub) return;
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(sub.paymentDay).padStart(2, '0')}`;
+  const mk = monthKey(date);
+
+  // Verificar duplicados
+  const exists = State.transactions.some(t =>
+    t.type === 'subscription' &&
+    t.description === sub.name &&
+    monthKey(t.date) === mk
+  );
+  if (exists) {
+    showToast(`Ya existe un registro de "${sub.name}" este mes`, 'error');
+    return;
+  }
+
+  State.transactions.push({
+    id: uid('t'),
+    date,
+    personId: sub.personId,
+    category: sub.category,
+    description: sub.name,
+    amount: sub.amount,
+    paymentMethod: 'Auto-generado',
+    notes: 'Suscripción mensual generada automáticamente',
+    type: 'subscription',
+    createdBy: State.currentUser,
+    createdAt: new Date().toISOString()
+  });
+  State.saveTransactions();
+  showToast('✓ Gasto del mes generado');
+  render();
+}
+
+// =============================================================================
+// INSTALLMENTS VIEW
+// =============================================================================
+function renderInstallments() {
+  // Group by groupId
+  const groups = {};
+  State.transactions.forEach(t => {
+    if (t.installmentInfo?.groupId) {
+      if (!groups[t.installmentInfo.groupId]) {
+        groups[t.installmentInfo.groupId] = {
+          groupId: t.installmentInfo.groupId,
+          description: t.description,
+          personId: t.personId,
+          category: t.category,
+          totalAmount: t.installmentInfo.totalAmount,
+          totalInstallments: t.installmentInfo.total,
+          installmentAmount: t.amount,
+          items: []
+        };
+      }
+      groups[t.installmentInfo.groupId].items.push(t);
+    }
+  });
+  const list = Object.values(groups).map(g => {
+    const now = new Date();
+    g.items.sort((a, b) => a.date.localeCompare(b.date));
+    g.paid = g.items.filter(i => new Date(i.date + 'T00:00:00') < now).length;
+    g.pending = g.items.length - g.paid;
+    return g;
+  }).sort((a, b) => b.items[0].date.localeCompare(a.items[0].date));
+
+  const totalDebt = list.reduce((s, g) => s + (g.pending * g.installmentAmount), 0);
+
+  // Próximo mes
+  const next = new Date();
+  next.setMonth(next.getMonth() + 1);
+  const nextKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+  const nextMonth = State.transactions
+    .filter(t => t.installmentInfo && monthKey(t.date) === nextKey)
+    .reduce((s, t) => s + t.amount, 0);
+
+  return `
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="card p-4">
+          <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--color-text-muted);">Deuda pendiente</p>
+          <p class="font-display text-2xl font-bold number">${fmt(totalDebt)}</p>
+          <p class="text-xs mt-1" style="color: var(--color-text-subtle);">${list.filter(g => g.pending > 0).length} compras activas</p>
+        </div>
+        <div class="card p-4">
+          <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--color-text-muted);">Cuotas próximo mes</p>
+          <p class="font-display text-2xl font-bold number">${fmt(nextMonth)}</p>
+          <p class="text-xs mt-1" style="color: var(--color-text-subtle);">A pagar próximamente</p>
+        </div>
+      </div>
+
+      ${list.length === 0 ? `
+        <div class="card p-8 text-center">
+          <i data-lucide="credit-card" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
+          <p style="color: var(--color-text-muted);">Sin compras a cuotas registradas</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${list.map(g => {
+            const p = getPerson(g.personId);
+            const progress = (g.paid / g.totalInstallments) * 100;
+            return `
+              <div class="card p-4">
+                <div class="flex items-start justify-between mb-3 gap-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="font-semibold truncate">${escapeHtml(g.description)}</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">
+                      ${escapeHtml(p ? p.name : '?')} · ${escapeHtml(g.category)}
+                    </p>
+                  </div>
+                  <div class="text-right flex-shrink-0">
+                    <p class="font-display font-bold number">${fmt(g.totalAmount)}</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">${fmt(g.installmentAmount)} × ${g.totalInstallments}</p>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <div class="flex justify-between text-xs mb-1" style="color: var(--color-text-muted);">
+                    <span>${g.paid} pagadas / ${g.pending} pendientes</span>
+                    <span class="font-semibold">${progress.toFixed(0)}%</span>
+                  </div>
+                  <div class="h-2 rounded-full overflow-hidden" style="background: var(--color-border);">
+                    <div class="h-full transition-all" style="width: ${progress}%; background: var(--color-primary);"></div>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-1 mt-3">
+                  ${g.items.map(c => {
+                    const paid = new Date(c.date + 'T00:00:00') < new Date();
+                    return `
+                      <span class="text-xs px-2 py-1 rounded inline-flex items-center gap-1"
+                            style="background: ${paid ? 'var(--color-success-soft)' : 'var(--color-bg-2)'};
+                                   color: ${paid ? 'var(--color-success)' : 'var(--color-text-muted)'};"
+                            title="${new Date(c.date + 'T00:00:00').toLocaleDateString('es-CL')} — ${fmt(c.amount)}">
+                        ${paid ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                        #${c.installmentInfo.number}
+                      </span>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// =============================================================================
+// CONFIG VIEW
+// =============================================================================
+function renderConfig() {
+  return `
+    <div class="space-y-4 max-w-3xl">
+      <!-- Personas -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-display font-bold text-lg">Personas e ingresos</h3>
+          <button data-action="add-config-person" class="btn btn-secondary">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            Agregar
+          </button>
+        </div>
+        <div class="space-y-3">
+          ${State.config.persons.map(p => `
+            <div class="flex items-center gap-3 p-3 rounded-lg" style="background: var(--color-bg-2);">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                   style="background: ${p.color};">
+                ${escapeHtml(p.name.charAt(0).toUpperCase())}
+              </div>
+              <div class="flex-1 grid grid-cols-2 gap-2">
+                <input type="text" class="input cfg-person-name" data-id="${p.id}" value="${escapeHtml(p.name)}">
+                <input type="number" class="input cfg-person-income number" data-id="${p.id}" value="${p.income}">
+              </div>
+              <button data-action="remove-config-person" data-id="${p.id}" class="btn btn-ghost p-2">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+        <div class="mt-3 pt-3 border-t flex justify-between font-display font-bold" style="border-color: var(--color-border);">
+          <span>Total mensual</span>
+          <span class="number">${fmt(State.config.persons.reduce((s, p) => s + p.income, 0))}</span>
+        </div>
+      </div>
+
+      <!-- Categorías -->
+      <div class="card p-5">
+        <h3 class="font-display font-bold text-lg mb-3">Categorías</h3>
+        <div class="flex flex-wrap gap-2 mb-3">
+          ${State.config.categories.map(c => `
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                  style="background: var(--color-primary-soft); color: var(--color-primary);">
+              ${escapeHtml(c)}
+              <button data-action="remove-config-category" data-cat="${escapeHtml(c)}" class="hover:opacity-70">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
+            </span>
+          `).join('')}
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="cfg-new-cat" class="input flex-1" placeholder="Nueva categoría...">
+          <button id="cfg-add-cat" class="btn btn-secondary">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Medios de pago -->
+      <div class="card p-5">
+        <h3 class="font-display font-bold text-lg mb-3">Medios de pago</h3>
+        <div class="flex flex-wrap gap-2 mb-3">
+          ${State.config.paymentMethods.map(m => `
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                  style="background: var(--color-accent-soft); color: var(--color-accent);">
+              ${escapeHtml(m)}
+              <button data-action="remove-config-method" data-method="${escapeHtml(m)}" class="hover:opacity-70">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
+            </span>
+          `).join('')}
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="cfg-new-method" class="input flex-1" placeholder="Nuevo medio de pago...">
+          <button id="cfg-add-method" class="btn btn-secondary">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Datos -->
+      <div class="card p-5">
+        <h3 class="font-display font-bold text-lg mb-3">Datos del sistema</h3>
+        <div class="space-y-2">
+          <button data-action="export-excel" class="btn btn-primary w-full">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            Descargar Excel completo
+          </button>
+          <button data-action="export-data" class="btn btn-secondary w-full">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Descargar backup (JSON)
+          </button>
+          <button data-action="import-json" class="btn btn-secondary w-full">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Importar backup (JSON)
+          </button>
+          <button data-action="logout" class="btn btn-secondary w-full">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            Cerrar sesión en este dispositivo
+          </button>
+          <button data-action="reset-data" class="btn btn-danger w-full">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            Borrar TODO en la nube
+          </button>
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="card p-5" style="background: var(--color-primary-soft); border-color: var(--color-primary);">
+        <p class="font-bold mb-2 flex items-center gap-2" style="color: var(--color-primary);">
+          <i data-lucide="info" class="w-4 h-4"></i>
+          Información del sistema
+        </p>
+        <ul class="text-sm space-y-1" style="color: var(--color-primary);">
+          <li>• ${State.transactions.length} transacciones registradas</li>
+          <li>• ${State.subscriptions.length} suscripciones (${State.subscriptions.filter(s => s.active).length} activas)</li>
+          <li>• Datos guardados localmente en este navegador</li>
+          <li>• Haz backups periódicos para no perder información</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+function bindConfig() {
+  // Auto-save inputs de personas
+  document.querySelectorAll('.cfg-person-name').forEach(el => {
+    el.addEventListener('change', () => {
+      const id = el.dataset.id;
+      const p = State.config.persons.find(p => p.id === id);
+      if (p) {
+        p.name = el.value.trim() || p.name;
+        State.saveConfig();
+      }
+    });
+  });
+  document.querySelectorAll('.cfg-person-income').forEach(el => {
+    el.addEventListener('change', () => {
+      const id = el.dataset.id;
+      const p = State.config.persons.find(p => p.id === id);
+      if (p) {
+        p.income = parseFloat(el.value) || 0;
+        State.saveConfig();
+      }
+    });
+  });
+
+  // Add category
+  const catBtn = document.getElementById('cfg-add-cat');
+  if (catBtn) {
+    catBtn.addEventListener('click', () => {
+      const v = document.getElementById('cfg-new-cat').value.trim();
+      if (v && !State.config.categories.includes(v)) {
+        State.config.categories.push(v);
+        State.saveConfig();
+        showToast('✓ Categoría agregada');
+        render();
+      }
+    });
+  }
+  const catInput = document.getElementById('cfg-new-cat');
+  if (catInput) {
+    catInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('cfg-add-cat').click(); }
+    });
+  }
+
+  // Add method
+  const methodBtn = document.getElementById('cfg-add-method');
+  if (methodBtn) {
+    methodBtn.addEventListener('click', () => {
+      const v = document.getElementById('cfg-new-method').value.trim();
+      if (v && !State.config.paymentMethods.includes(v)) {
+        State.config.paymentMethods.push(v);
+        State.saveConfig();
+        showToast('✓ Medio agregado');
+        render();
+      }
+    });
+  }
+  const methodInput = document.getElementById('cfg-new-method');
+  if (methodInput) {
+    methodInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('cfg-add-method').click(); }
+    });
+  }
+}
+
+function addConfigPerson() {
+  const name = prompt('Nombre de la persona:');
+  if (!name || !name.trim()) return;
+  const income = parseFloat(prompt('Ingreso mensual (CLP):', '0')) || 0;
+  const usedColors = State.config.persons.map(p => p.color);
+  const availableColor = PERSON_COLORS.find(c => !usedColors.includes(c.value)) || PERSON_COLORS[0];
+  State.config.persons.push({
+    id: uid('p'),
+    name: name.trim(),
+    income,
+    color: availableColor.value
+  });
+  State.saveConfig();
+  showToast('✓ Persona agregada');
+  render();
+}
+
+function removeConfigPerson(id) {
+  if (State.config.persons.length === 1) {
+    showToast('Debe haber al menos una persona', 'error');
+    return;
+  }
+  if (!confirm2('¿Eliminar esta persona? Sus gastos NO se borran.')) return;
+  State.config.persons = State.config.persons.filter(p => p.id !== id);
+  if (State.currentUser === id) {
+    State.currentUser = State.config.persons[0].id;
+    State.saveCurrentUser();
+  }
+  State.saveConfig();
+  showToast('✓ Eliminada');
+  render();
+}
+
+function removeConfigCategory(cat) {
+  State.config.categories = State.config.categories.filter(c => c !== cat);
+  State.saveConfig();
+  render();
+}
+
+function removeConfigMethod(method) {
+  State.config.paymentMethods = State.config.paymentMethods.filter(m => m !== method);
+  State.saveConfig();
+  render();
+}
+
+function exportData() {
+  const data = {
+    exported: new Date().toISOString(),
+    config: State.config,
+    transactions: State.transactions,
+    subscriptions: State.subscriptions
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finanzas_backup_${today()}.json`;
+  a.click();
+  showToast('✓ Backup descargado');
+}
+
+// =============================================================================
+// EXPORT TO EXCEL (multi-sheet con formato profesional)
+// =============================================================================
+function exportToExcel() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Error: librería Excel no cargada', 'error');
+    return;
+  }
+
+  try {
+    const wb = XLSX.utils.book_new();
+    wb.Props = {
+      Title: 'Finanzas Familiares',
+      Subject: 'Reporte de Gastos',
+      Author: 'Sistema Finanzas',
+      CreatedDate: new Date()
+    };
+
+    const fechaGen = new Date().toLocaleDateString('es-CL');
+    const horaGen = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+
+    // -------------------------------------------------------------------------
+    // ESTILOS BASE (xlsx-style usa la propiedad .s en cada celda)
+    // Nota: la versión community de SheetJS preserva tipos y formatos numéricos
+    // (.t y .z) pero los estilos visuales completos requieren xlsx-js-style.
+    // Aplicamos lo que sí funciona: formato de número, ancho de columnas,
+    // merged cells, freeze panes, autofilter y tipos correctos.
+    // -------------------------------------------------------------------------
+
+    // Helper: aplica formato moneda CLP a columnas indicadas
+    const applyMoneyFormat = (ws, columns, startRow = 2) => {
+      Object.keys(ws).forEach(key => {
+        if (key.startsWith('!')) return;
+        const match = key.match(/^([A-Z]+)(\d+)$/);
+        if (!match) return;
+        const col = match[1];
+        const row = parseInt(match[2]);
+        if (columns.includes(col) && row >= startRow) {
+          const cell = ws[key];
+          if (typeof cell.v === 'number') {
+            cell.t = 'n';
+            cell.z = '"$"#,##0;[Red]"-$"#,##0';
+          }
+        }
+      });
+    };
+
+    // Helper: aplica formato porcentaje
+    const applyPercentText = (ws, columns, startRow = 2) => {
+      // Los % los pasamos como string ya formateado, no requiere acción
+    };
+
+    // Helper: aplica formato fecha
+    const applyDateFormat = (ws, columns, startRow = 2) => {
+      Object.keys(ws).forEach(key => {
+        if (key.startsWith('!')) return;
+        const match = key.match(/^([A-Z]+)(\d+)$/);
+        if (!match) return;
+        const col = match[1];
+        const row = parseInt(match[2]);
+        if (columns.includes(col) && row >= startRow) {
+          const cell = ws[key];
+          if (typeof cell.v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cell.v)) {
+            // Convertir a date object
+            const d = new Date(cell.v + 'T00:00:00');
+            cell.v = d;
+            cell.t = 'd';
+            cell.z = 'dd-mm-yyyy';
+          }
+        }
+      });
+    };
+
+    // =========================================================================
+    // HOJA 1: RESUMEN
+    // =========================================================================
+    const totalIngresos = State.config.persons.reduce((s, p) => s + p.income, 0);
+    const totalGastadoHistorico = State.transactions.reduce((s, t) => s + t.amount, 0);
+
+    const currentMonth = monthKey(today());
+    const txnsCurrent = State.transactions.filter(t => monthKey(t.date) === currentMonth);
+    const gastoMes = txnsCurrent.reduce((s, t) => s + t.amount, 0);
+    const balance = totalIngresos - gastoMes;
+    const pctMes = totalIngresos > 0 ? (gastoMes / totalIngresos) * 100 : 0;
+
+    const porCat = {};
+    txnsCurrent.forEach(t => porCat[t.category] = (porCat[t.category] || 0) + t.amount);
+    const catSorted = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
+
+    const porPersona = {};
+    txnsCurrent.forEach(t => {
+      const p = getPerson(t.personId);
+      const name = p ? p.name : 'Otro';
+      porPersona[name] = (porPersona[name] || 0) + t.amount;
+    });
+    const personSorted = Object.entries(porPersona).sort((a, b) => b[1] - a[1]);
+
+    // Tendencia 6 meses
+    const tendencia = [];
+    const [y0, m0] = currentMonth.split('-').map(Number);
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(y0, m0 - 1 - i, 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const total = State.transactions.filter(t => monthKey(t.date) === k).reduce((s, t) => s + t.amount, 0);
+      tendencia.push([monthLabel(k), total]);
+    }
+
+    const resumenData = [
+      ['RESUMEN FINANCIERO'],
+      [`Generado: ${fechaGen} ${horaGen}`],
+      [],
+      ['INGRESOS MENSUALES'],
+      ['Persona', 'Ingreso Mensual'],
+      ...State.config.persons.map(p => [p.name, p.income]),
+      ['TOTAL', totalIngresos],
+      [],
+      [`GASTOS DEL MES (${monthLabel(currentMonth)})`],
+      ['Concepto', 'Valor'],
+      ['Total Gastado', gastoMes],
+      ['Balance', balance],
+      ['% Gastado del ingreso', `${pctMes.toFixed(1)}%`],
+      ['Cantidad de movimientos', txnsCurrent.length],
+      [],
+      ['GASTOS POR CATEGORÍA (mes actual)'],
+      ['Categoría', 'Monto', '% del Total'],
+      ...catSorted.map(([cat, monto]) => [
+        cat,
+        monto,
+        gastoMes > 0 ? `${((monto / gastoMes) * 100).toFixed(1)}%` : '0%'
+      ]),
+      [],
+      ['GASTOS POR PERSONA (mes actual)'],
+      ['Persona', 'Monto', '% del Total'],
+      ...personSorted.map(([name, monto]) => [
+        name,
+        monto,
+        gastoMes > 0 ? `${((monto / gastoMes) * 100).toFixed(1)}%` : '0%'
+      ]),
+      [],
+      ['TENDENCIA ÚLTIMOS 6 MESES'],
+      ['Mes', 'Total Gastado'],
+      ...tendencia,
+      [],
+      ['HISTÓRICO TOTAL'],
+      ['Total transacciones', State.transactions.length],
+      ['Total gastado histórico', totalGastadoHistorico],
+      ['Suscripciones activas', State.subscriptions.filter(s => s.active).length],
+      ['Cuotas pendientes', State.transactions.filter(t => t.installmentInfo && new Date(t.date + 'T00:00:00') >= new Date()).length]
+    ];
+
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    wsResumen['!cols'] = [{ wch: 35 }, { wch: 18 }, { wch: 14 }];
+    // Merge título principal
+    wsResumen['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }
+    ];
+    applyMoneyFormat(wsResumen, ['B'], 5);
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+    // =========================================================================
+    // HOJA 2: MOVIMIENTOS
+    // =========================================================================
+    const movHeader = [
+      'Fecha', 'Persona', 'Categoría', 'Descripción', 'Monto',
+      'Tipo', 'Cuota', 'Medio de Pago', 'Notas', 'Registrado por'
+    ];
+    const movRows = State.transactions
+      .slice()
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(t => {
+        const p = getPerson(t.personId);
+        const creator = getPerson(t.createdBy);
+        const tipoLabel = t.type === 'unique' ? 'Único'
+          : t.type === 'installment' ? 'Cuota'
+          : t.type === 'subscription' ? 'Suscripción' : (t.type || '-');
+        const cuotaLabel = t.installmentInfo
+          ? `${t.installmentInfo.number}/${t.installmentInfo.total}` : '';
+        return [
+          t.date,
+          p ? p.name : 'Otro',
+          t.category,
+          t.description,
+          t.amount,
+          tipoLabel,
+          cuotaLabel,
+          t.paymentMethod || '',
+          t.notes || '',
+          creator ? creator.name : ''
+        ];
+      });
+
+    const movTotal = State.transactions.reduce((s, t) => s + t.amount, 0);
+
+    const movData = movRows.length > 0
+      ? [movHeader, ...movRows, [], ['', '', '', 'TOTAL', movTotal]]
+      : [movHeader, ['Sin movimientos registrados']];
+
+    const wsMov = XLSX.utils.aoa_to_sheet(movData);
+    wsMov['!cols'] = [
+      { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 38 }, { wch: 14 },
+      { wch: 12 }, { wch: 8 }, { wch: 18 }, { wch: 28 }, { wch: 14 }
+    ];
+    // Freeze first row + autofilter
+    wsMov['!freeze'] = { xSplit: 0, ySplit: 1 };
+    wsMov['!autofilter'] = { ref: `A1:J${movRows.length + 1}` };
+    applyMoneyFormat(wsMov, ['E'], 2);
+    applyDateFormat(wsMov, ['A'], 2);
+    XLSX.utils.book_append_sheet(wb, wsMov, 'Movimientos');
+
+    // =========================================================================
+    // HOJA 3: CUOTAS
+    // =========================================================================
+    const groups = {};
+    State.transactions.forEach(t => {
+      if (t.installmentInfo?.groupId) {
+        if (!groups[t.installmentInfo.groupId]) {
+          groups[t.installmentInfo.groupId] = {
+            firstDate: t.date,
+            description: t.description,
+            personId: t.personId,
+            category: t.category,
+            totalAmount: t.installmentInfo.totalAmount,
+            totalInstallments: t.installmentInfo.total,
+            installmentAmount: t.amount,
+            items: []
+          };
+        }
+        groups[t.installmentInfo.groupId].items.push(t);
+        if (t.date < groups[t.installmentInfo.groupId].firstDate) {
+          groups[t.installmentInfo.groupId].firstDate = t.date;
+        }
+      }
+    });
+
+    const now = new Date();
+    const cuotasHeader = [
+      'Inicio', 'Descripción', 'Persona', 'Categoría',
+      'Monto Total', 'N° Cuotas', 'Monto Cuota',
+      'Pagadas', 'Pendientes', 'Deuda Restante', '% Avance'
+    ];
+    const cuotasRows = Object.values(groups)
+      .map(g => {
+        const p = getPerson(g.personId);
+        const paid = g.items.filter(i => new Date(i.date + 'T00:00:00') < now).length;
+        const pending = g.items.length - paid;
+        const debt = pending * g.installmentAmount;
+        const progress = g.totalInstallments > 0 ? (paid / g.totalInstallments) * 100 : 0;
+        return [
+          g.firstDate,
+          g.description,
+          p ? p.name : 'Otro',
+          g.category,
+          g.totalAmount,
+          g.totalInstallments,
+          g.installmentAmount,
+          paid,
+          pending,
+          debt,
+          `${progress.toFixed(0)}%`
+        ];
+      })
+      .sort((a, b) => b[0].localeCompare(a[0]));
+
+    const totalDeuda = cuotasRows.reduce((s, r) => s + r[9], 0);
+    const cuotasData = cuotasRows.length > 0
+      ? [cuotasHeader, ...cuotasRows, [], ['', '', '', '', '', '', '', '', 'TOTAL DEUDA', totalDeuda]]
+      : [cuotasHeader, ['', 'Sin compras a cuotas registradas']];
+
+    const wsCuotas = XLSX.utils.aoa_to_sheet(cuotasData);
+    wsCuotas['!cols'] = [
+      { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 16 },
+      { wch: 14 }, { wch: 10 }, { wch: 14 },
+      { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 12 }
+    ];
+    if (cuotasRows.length > 0) {
+      wsCuotas['!freeze'] = { xSplit: 0, ySplit: 1 };
+      wsCuotas['!autofilter'] = { ref: `A1:K${cuotasRows.length + 1}` };
+    }
+    applyMoneyFormat(wsCuotas, ['E', 'G', 'J'], 2);
+    applyDateFormat(wsCuotas, ['A'], 2);
+    XLSX.utils.book_append_sheet(wb, wsCuotas, 'Cuotas');
+
+    // =========================================================================
+    // HOJA 4: SUSCRIPCIONES
+    // =========================================================================
+    const subsHeader = [
+      'Nombre', 'Persona', 'Categoría',
+      'Monto Mensual', 'Día Cobro', 'Estado', 'Total Anual Estimado'
+    ];
+    const subsRows = State.subscriptions.map(s => {
+      const p = getPerson(s.personId);
+      return [
+        s.name,
+        p ? p.name : 'Otro',
+        s.category,
+        s.amount,
+        s.paymentDay,
+        s.active ? 'Activa' : 'Pausada',
+        s.amount * 12
+      ];
+    }).sort((a, b) => b[3] - a[3]);
+
+    const totalMensual = State.subscriptions.filter(s => s.active).reduce((s, sub) => s + sub.amount, 0);
+    const totalAnual = totalMensual * 12;
+
+    const subsData = subsRows.length > 0
+      ? [
+          subsHeader,
+          ...subsRows,
+          [],
+          ['', '', 'Total mensual (activas)', totalMensual],
+          ['', '', 'Total anual estimado', '', '', '', totalAnual]
+        ]
+      : [subsHeader, ['Sin suscripciones registradas']];
+
+    const wsSubs = XLSX.utils.aoa_to_sheet(subsData);
+    wsSubs['!cols'] = [
+      { wch: 22 }, { wch: 14 }, { wch: 18 },
+      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 18 }
+    ];
+    if (subsRows.length > 0) {
+      wsSubs['!freeze'] = { xSplit: 0, ySplit: 1 };
+      wsSubs['!autofilter'] = { ref: `A1:G${subsRows.length + 1}` };
+    }
+    applyMoneyFormat(wsSubs, ['D', 'G'], 2);
+    XLSX.utils.book_append_sheet(wb, wsSubs, 'Suscripciones');
+
+    // =========================================================================
+    // HOJA 5: CONFIGURACIÓN
+    // =========================================================================
+    const cfgData = [
+      ['CONFIGURACIÓN DEL SISTEMA'],
+      [`Generado: ${fechaGen} ${horaGen}`],
+      [],
+      ['PERSONAS'],
+      ['Nombre', 'Ingreso Mensual', 'Color'],
+      ...State.config.persons.map(p => [p.name, p.income, p.color]),
+      ['', 'TOTAL', totalIngresos],
+      [],
+      ['CATEGORÍAS'],
+      ['#', 'Nombre'],
+      ...State.config.categories.map((c, i) => [i + 1, c]),
+      [],
+      ['MEDIOS DE PAGO'],
+      ['#', 'Nombre'],
+      ...State.config.paymentMethods.map((m, i) => [i + 1, m])
+    ];
+
+    const wsCfg = XLSX.utils.aoa_to_sheet(cfgData);
+    wsCfg['!cols'] = [{ wch: 28 }, { wch: 22 }, { wch: 14 }];
+    wsCfg['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }
+    ];
+    applyMoneyFormat(wsCfg, ['B'], 5);
+    XLSX.utils.book_append_sheet(wb, wsCfg, 'Configuración');
+
+    // =========================================================================
+    // ESCRIBIR ARCHIVO
+    // =========================================================================
+    const filename = `finanzas_${today()}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast('✓ Excel descargado');
+  } catch (err) {
+    console.error('Error exporting to Excel:', err);
+    showToast('Error al exportar: ' + err.message, 'error');
+  }
+}
+
+async function resetAllData() {
+  if (!confirm2('⚠️ ATENCIÓN\n\nEsto borrará TODA la información en la nube:\n- Configuración\n- Transacciones\n- Suscripciones\n\n¿Continuar?')) return;
+  if (!confirm2('¿Estás 100% seguro? Esta acción no se puede deshacer y afecta a TODOS los usuarios.')) return;
+  State.config = null;
+  State.transactions = [];
+  State.subscriptions = [];
+  State.currentUser = null;
+  Setup.step = 1;
+  Setup.data = {
+    persons: [],
+    categories: [...DEFAULT_CATEGORIES],
+    paymentMethods: [...DEFAULT_PAYMENT_METHODS]
+  };
+  Setup.draftPerson = { name: '', income: '', color: PERSON_COLORS[0].value };
+  try {
+    await State.saveToAPI();
+    showToast('Sistema reiniciado');
+    render();
+  } catch (err) {
+    showToast('Error al reiniciar: ' + err.message, 'error');
+  }
+}
+
+// =============================================================================
+// LOGIN SCREEN
+// =============================================================================
+function renderLogin(errorMsg) {
+  const root = document.getElementById('app');
+  root.innerHTML = `
+    <div class="min-h-screen flex items-center justify-center p-4 texture-paper">
+      <div class="w-full max-w-md animate-slide-up">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style="background: var(--color-primary);">
+            <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+          </div>
+          <h1 class="font-display text-4xl font-bold mb-2">Finanzas</h1>
+          <p style="color: var(--color-text-muted);">Ingresa la clave compartida para acceder</p>
+        </div>
+
+        <div class="card p-6">
+          <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+            CLAVE DE ACCESO
+          </label>
+          <input type="password" id="login-key" class="input mb-4"
+                 placeholder="Tu clave secreta..."
+                 autocomplete="current-password" autofocus>
+          ${errorMsg ? `
+            <div class="rounded-lg p-3 mb-4 text-sm" style="background: var(--color-danger-soft); color: var(--color-danger);">
+              <i data-lucide="alert-circle" class="w-4 h-4 inline-block mr-1"></i>
+              ${escapeHtml(errorMsg)}
+            </div>
+          ` : ''}
+          <button id="login-btn" class="btn btn-primary w-full" style="padding: 12px;">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            Acceder
+          </button>
+        </div>
+
+        <p class="text-center text-xs mt-6" style="color: var(--color-text-subtle);">
+          La clave se guarda en este dispositivo · Compártela con quien quiera acceder
+        </p>
+      </div>
+    </div>
+  `;
+  if (window.lucide) lucide.createIcons();
+
+  const input = document.getElementById('login-key');
+  const btn = document.getElementById('login-btn');
+  const submit = async () => {
+    const key = input.value.trim();
+    if (!key) return;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> Verificando...';
+    API.setAppKey(key);
+    try {
+      await State.loadFromAPI();
+      startPolling();
+      render();
+    } catch (err) {
+      API.clearAppKey();
+      if (err.status === 401) {
+        renderLogin('Clave incorrecta');
+      } else {
+        renderLogin('Error de conexión: ' + err.message);
+      }
+    }
+  };
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+}
+
+// =============================================================================
+// SYNC INDICATOR
+// =============================================================================
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  const status = State.syncStatus;
+  let html = '';
+  if (status === 'saving') {
+    html = `
+      <div class="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md"
+           style="background: var(--color-warning-soft); color: var(--color-warning);">
+        <div class="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full"></div>
+        <span>Guardando…</span>
+      </div>`;
+  } else if (status === 'loading') {
+    html = `
+      <div class="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md"
+           style="background: var(--color-primary-soft); color: var(--color-primary);">
+        <div class="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full"></div>
+        <span>Sincronizando…</span>
+      </div>`;
+  } else if (status === 'error') {
+    html = `
+      <button data-action="retry-sync" class="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md"
+           style="background: var(--color-danger-soft); color: var(--color-danger); cursor: pointer;"
+           title="${escapeHtml(State.syncError || 'Error de conexión')}">
+        <i data-lucide="alert-circle" class="w-3 h-3"></i>
+        <span>Sin conexión</span>
+      </button>`;
+  } else {
+    html = `
+      <div class="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md"
+           style="background: var(--color-success-soft); color: var(--color-success);">
+        <div class="w-2 h-2 rounded-full" style="background: currentColor;"></div>
+        <span>Sincronizado</span>
+      </div>`;
+  }
+  el.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+  // Bind retry
+  const retryBtn = el.querySelector('[data-action="retry-sync"]');
+  if (retryBtn) retryBtn.addEventListener('click', () => State.saveToAPI());
+}
+
+// =============================================================================
+// POLLING (cada 10s revisa si hay cambios remotos)
+// =============================================================================
+let pollingInterval = null;
+function startPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(async () => {
+    if (State.syncStatus === 'saving') return; // no pisar guardado
+    try {
+      const data = await API.fetchState();
+      if ((data.version || 0) > State.version) {
+        // Hay cambios remotos, recargar
+        State.config = data.config;
+        State.transactions = data.transactions || [];
+        State.subscriptions = data.subscriptions || [];
+        State.version = data.version || 0;
+        State.updatedAt = data.updatedAt;
+        State.updatedBy = data.updatedBy;
+        const updaterName = State.updatedBy && State.config
+          ? (State.config.persons.find(p => p.id === State.updatedBy)?.name || '')
+          : '';
+        if (updaterName && State.updatedBy !== State.currentUser) {
+          showToast(`✓ Actualizado por ${updaterName}`);
+        }
+        render();
+      }
+    } catch (err) {
+      State.syncStatus = 'error';
+      State.syncError = err.message;
+      updateSyncIndicator();
+    }
+  }, 10000);
+}
+
+// =============================================================================
+// IMPORT JSON BACKUP
+// =============================================================================
+function importJSON() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!confirm2(`⚠️ Importar "${file.name}" REEMPLAZARÁ todos los datos actuales en la nube.\n\n¿Continuar?`)) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.config || !Array.isArray(data.transactions)) {
+        showToast('Archivo no válido', 'error');
+        return;
+      }
+      State.config = data.config;
+      State.transactions = data.transactions;
+      State.subscriptions = data.subscriptions || [];
+      await State.saveToAPI();
+      // Resetear current user
+      if (State.config.persons[0]) {
+        State.setCurrentUser(State.config.persons[0].id);
+      }
+      showToast('✓ Datos importados');
+      render();
+    } catch (err) {
+      showToast('Error al importar: ' + err.message, 'error');
+    }
+  };
+  input.click();
+}
+
+// =============================================================================
+// LOGOUT
+// =============================================================================
+function logout() {
+  if (!confirm2('¿Cerrar sesión? Tendrás que ingresar la clave de nuevo en este dispositivo. Tus datos en la nube NO se borran.')) return;
+  if (pollingInterval) clearInterval(pollingInterval);
+  API.clearAppKey();
+  State.config = null;
+  State.transactions = [];
+  State.subscriptions = [];
+  State.currentUser = null;
+  State.version = 0;
+  State.loaded = false;
+  renderLogin();
+}
+
+// =============================================================================
+// INIT
+// =============================================================================
+async function init() {
+  const savedKey = API.loadAppKey();
+  if (!savedKey) {
+    renderLogin();
+    return;
+  }
+  try {
+    await State.loadFromAPI();
+    startPolling();
+    render();
+  } catch (err) {
+    if (err.status === 401) {
+      API.clearAppKey();
+      renderLogin('La clave guardada ya no es válida');
+    } else {
+      renderLogin('Error de conexión: ' + err.message);
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>
