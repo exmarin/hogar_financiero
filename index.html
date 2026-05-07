@@ -270,6 +270,159 @@
       font-size: 16px !important; /* Evita zoom automático en iOS */
     }
   }
+
+  /* Bottom Navigation (solo móvil) */
+  .bottom-nav { display: none; }
+  .top-tabs { display: flex; }
+
+  @media (max-width: 640px) {
+    .top-tabs { display: none; }
+    .bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      z-index: 40;
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.04);
+    }
+    main {
+      padding-bottom: 90px !important;
+    }
+  }
+
+  /* Bottom Navigation (móvil tipo app nativa) */
+  .bottom-nav {
+    display: none;
+  }
+  @media (max-width: 768px) {
+    .bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      padding: 4px 4px;
+      padding-bottom: calc(4px + env(safe-area-inset-bottom));
+      justify-content: space-around;
+      align-items: flex-end;
+      z-index: 40;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.05);
+    }
+    .top-tabs {
+      display: none !important;
+    }
+  }
+  .bottom-nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    transition: color 0.15s ease;
+    min-width: 0;
+    line-height: 1.1;
+  }
+  .bottom-nav-tab.active {
+    color: var(--color-primary);
+  }
+  .bottom-nav-tab i {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .bottom-nav-tab.fab {
+    background: var(--color-primary);
+    color: white !important;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    margin: 0 4px;
+    margin-top: -16px;
+    flex: 0 0 56px;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(15,76,92,0.4);
+    align-self: center;
+  }
+  .bottom-nav-tab.fab i {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .bottom-nav-tab.fab span {
+    display: none;
+  }
+
+  /* More menu (bottom sheet) */
+  .more-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 50;
+    animation: fadeIn 0.2s ease;
+  }
+  .more-menu-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 16px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 51;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .more-menu-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--color-border-strong);
+    border-radius: 2px;
+    margin: -12px auto 16px;
+  }
+  .more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 12px;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .more-menu-item:hover {
+    background: var(--color-bg-2);
+  }
+  .more-menu-item.active {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+  .more-menu-item i {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -968,8 +1121,8 @@ function renderApp() {
           </div>
         </div>
 
-        <!-- Tabs -->
-        <nav class="max-w-6xl mx-auto px-2 flex gap-1 overflow-x-auto">
+        <!-- Tabs (solo desktop) -->
+        <nav class="top-tabs max-w-6xl mx-auto px-2 gap-1 overflow-x-auto">
           ${[
             { id: 'dashboard', label: 'Dashboard', icon: 'home' },
             { id: 'register', label: 'Registrar', icon: 'plus' },
@@ -988,7 +1141,7 @@ function renderApp() {
       </header>
 
       <!-- Content -->
-      <main class="max-w-6xl mx-auto p-3 sm:p-4 pb-20 animate-fade-in">
+      <main class="max-w-6xl mx-auto p-3 sm:p-4 pb-24 sm:pb-20 animate-fade-in">
         ${State.view === 'dashboard' ? renderDashboard() : ''}
         ${State.view === 'register' ? renderRegister() : ''}
         ${State.view === 'transactions' ? renderTransactions() : ''}
@@ -997,6 +1150,66 @@ function renderApp() {
         ${State.view === 'goals' ? renderGoals() : ''}
         ${State.view === 'config' ? renderConfig() : ''}
       </main>
+
+      <!-- Bottom Navigation (mobile only) -->
+      <nav class="bottom-nav">
+        <button data-action="switch-view" data-view="dashboard"
+                class="bottom-nav-tab ${State.view === 'dashboard' ? 'active' : ''}">
+          <i data-lucide="home"></i>
+          <span>Inicio</span>
+        </button>
+        <button data-action="switch-view" data-view="transactions"
+                class="bottom-nav-tab ${State.view === 'transactions' ? 'active' : ''}">
+          <i data-lucide="list"></i>
+          <span>Movimientos</span>
+        </button>
+        <button data-action="switch-view" data-view="register"
+                class="bottom-nav-tab fab">
+          <i data-lucide="plus"></i>
+          <span>Registrar</span>
+        </button>
+        <button data-action="switch-view" data-view="installments"
+                class="bottom-nav-tab ${State.view === 'installments' ? 'active' : ''}">
+          <i data-lucide="credit-card"></i>
+          <span>Cuotas</span>
+        </button>
+        <button data-action="open-more-menu"
+                class="bottom-nav-tab ${['subscriptions','goals','config'].includes(State.view) ? 'active' : ''}">
+          <i data-lucide="more-horizontal"></i>
+          <span>Más</span>
+        </button>
+      </nav>
+
+      <!-- More Menu (bottom sheet) -->
+      <div id="more-menu-overlay" class="hidden">
+        <div class="more-menu-backdrop" data-action="close-more-menu"></div>
+        <div class="more-menu-sheet">
+          <div class="more-menu-handle"></div>
+          <h3 class="font-display font-bold text-lg mb-4 text-center">Más opciones</h3>
+          <div class="space-y-1">
+            <button data-action="switch-view-close" data-view="subscriptions"
+                    class="more-menu-item ${State.view === 'subscriptions' ? 'active' : ''}">
+              <i data-lucide="repeat"></i>
+              <span>Suscripciones</span>
+            </button>
+            <button data-action="switch-view-close" data-view="goals"
+                    class="more-menu-item ${State.view === 'goals' ? 'active' : ''}">
+              <i data-lucide="target"></i>
+              <span>Metas de ahorro</span>
+            </button>
+            <button data-action="switch-view-close" data-view="config"
+                    class="more-menu-item ${State.view === 'config' ? 'active' : ''}">
+              <i data-lucide="settings"></i>
+              <span>Configuración</span>
+            </button>
+          </div>
+          <button data-action="close-more-menu"
+                  class="w-full mt-4 py-3 rounded-xl font-medium"
+                  style="background: var(--color-bg-2); color: var(--color-text-muted);">
+            Cancelar
+          </button>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -1032,6 +1245,18 @@ function handleAppAction(e) {
     case 'switch-view':
       State.view = ds.view;
       render();
+      break;
+    case 'switch-view-close':
+      // Cierra el more-menu y cambia de vista
+      State.view = ds.view;
+      render();
+      break;
+    case 'open-more-menu':
+      e.stopPropagation();
+      document.getElementById('more-menu-overlay')?.classList.remove('hidden');
+      break;
+    case 'close-more-menu':
+      document.getElementById('more-menu-overlay')?.classList.add('hidden');
       break;
     case 'toggle-user-menu':
       e.stopPropagation();
