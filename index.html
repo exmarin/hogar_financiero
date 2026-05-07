@@ -2847,6 +2847,11 @@ async function loadAndRenderMembers() {
     }).join('');
 
     if (window.lucide) lucide.createIcons();
+
+    // Bindear nuevos botones (importante: el contenido se cargó async después del render inicial)
+    listEl.querySelectorAll('[data-action]').forEach(el => {
+      el.addEventListener('click', handleAppAction);
+    });
   } catch (err) {
     listEl.innerHTML = `<p class="text-sm" style="color: var(--color-danger);">Error: ${escapeHtml(err.message)}</p>`;
   }
@@ -2897,6 +2902,11 @@ async function loadAndRenderInvites() {
       </div>
     `;
     if (window.lucide) lucide.createIcons();
+
+    // Bindear nuevos botones (importante: contenido async)
+    el.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', handleAppAction);
+    });
   } catch (err) {
     // silencioso
   }
