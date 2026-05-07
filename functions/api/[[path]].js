@@ -75,6 +75,27 @@ async function getHogarMeta(env, hogarId) {
   return JSON.parse(raw);
 }
 
+// Si el hogar no tiene meta (cuenta creada antes del sistema de miembros),
+// lo creamos automáticamente con el usuario actual como admin.
+async function ensureHogarMeta(env, hogarId, currentUserEmail) {
+  let meta = await getHogarMeta(env, hogarId);
+  if (meta) return meta;
+
+  // Verificar que el hogar realmente existe
+  const hogarRaw = await env.FINANZAS_KV.get(`hogar:${hogarId}`);
+  if (!hogarRaw) return null;
+
+  // Crear meta retroactivamente con el usuario actual como admin
+  meta = {
+    hogarId,
+    members: [{ email: currentUserEmail, role: 'admin', joinedAt: new Date().toISOString() }],
+    createdAt: new Date().toISOString(),
+    autoCreated: true,
+  };
+  await saveHogarMeta(env, hogarId, meta);
+  return meta;
+}
+
 async function saveHogarMeta(env, hogarId, meta) {
   await env.FINANZAS_KV.put(`hogar_meta:${hogarId}`, JSON.stringify(meta));
 }
@@ -322,7 +343,7 @@ async function handleMe(request, env) {
   const session = await getSession(env, request);
   if (!session) return json({ error: 'No autenticado' }, 401);
 
-  const meta = await getHogarMeta(env, session.hogarId);
+  const meta = await ensureHogarMeta(env, session.hogarId, session.email);
   const myMember = meta?.members?.find(m => m.email === session.email);
 
   return json({
@@ -402,7 +423,7 @@ async function handleGetMembers(request, env) {
   const session = await getSession(env, request);
   if (!session) return json({ error: 'No autenticado' }, 401);
 
-  const meta = await getHogarMeta(env, session.hogarId);
+  const meta = await ensureHogarMeta(env, session.hogarId, session.email);
   if (!meta) return json({ members: [], maxMembers: MAX_MEMBERS_PER_HOGAR });
 
   return json({
@@ -420,7 +441,7 @@ async function handleRemoveMember(request, env) {
   try { body = await request.json(); } catch { return json({ error: 'JSON inválido' }, 400); }
   const targetEmail = normalizeEmail(body.email);
 
-  const meta = await getHogarMeta(env, session.hogarId);
+  const meta = await ensureHogarMeta(env, session.hogarId, session.email);
   if (!meta) return json({ error: 'Hogar no encontrado' }, 404);
 
   const me = meta.members.find(m => m.email === session.email);
@@ -452,7 +473,7 @@ async function handleCreateInvite(request, env) {
   const session = await getSession(env, request);
   if (!session) return json({ error: 'No autenticado' }, 401);
 
-  const meta = await getHogarMeta(env, session.hogarId);
+  const meta = await ensureHogarMeta(env, session.hogarId, session.email);
   if (!meta) return json({ error: 'Hogar no encontrado' }, 404);
 
   // Verificar que tenga capacidad
