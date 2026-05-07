@@ -1,0 +1,28 @@
+{
+  "name": "Hogar Financiero",
+  "short_name": "Finanzas",
+  "description": "Sistema personal de gestión de gastos familiares",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FAF8F5",
+  "theme_color": "#0F4C5C",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230F4C5C'/%3E%3Cpath d='M48 76c0-6.6 5.4-12 12-12h72c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H60c-6.6 0-12-5.4-12-12V76z' fill='%23C8A45C'/%3E%3Ccircle cx='128' cy='96' r='8' fill='%230F4C5C'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230F4C5C'/%3E%3Cpath d='M128 200c0-17.6 14.4-32 32-32h192c17.6 0 32 14.4 32 32v112c0 17.6-14.4 32-32 32H160c-17.6 0-32-14.4-32-32V200z' fill='%23C8A45C'/%3E%3Ccircle cx='340' cy='256' r='22' fill='%230F4C5C'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
