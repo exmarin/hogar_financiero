@@ -1676,26 +1676,100 @@ function renderDashboard() {
       ` : ''}
 
       <!-- Charts row -->
-      ${txns.length > 0 ? `
-        <div class="grid lg:grid-cols-2 gap-4">
-          <div class="card p-4">
-            <h3 class="font-semibold mb-4">Gastos por categoría</h3>
-            <div class="relative" style="height: 240px;">
-              <canvas id="chart-categories"></canvas>
+      ${txns.length > 0 ? (() => {
+        // Calculamos cuántas categorías y personas hay para decidir qué mostrar
+        const catSet = new Set(txns.map(t => t.category));
+        const personSet = new Set(txns.map(t => t.personId));
+        const catCount = catSet.size;
+        const personCount = personSet.size;
+
+        const byCat = {};
+        txns.forEach(t => byCat[t.category] = (byCat[t.category] || 0) + t.amount);
+        const catEntriesPreview = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+
+        const byPerson = {};
+        txns.forEach(t => {
+          const p = getPerson(t.personId);
+          const key = p ? p.name : 'Otro';
+          byPerson[key] = (byPerson[key] || 0) + t.amount;
+        });
+        const personEntriesPreview = Object.entries(byPerson);
+
+        return `
+          <div class="grid lg:grid-cols-2 gap-4">
+            <!-- Categoría: gráfico si >1, lista si =1 -->
+            <div class="card p-4">
+              <h3 class="font-semibold mb-3">Gastos por categoría</h3>
+              ${catCount > 1 ? `
+                <div class="relative" style="height: 220px;">
+                  <canvas id="chart-categories"></canvas>
+                </div>
+              ` : `
+                <div class="space-y-2">
+                  ${catEntriesPreview.map(([cat, amount]) => {
+                    const pct = totalSpent > 0 ? (amount / totalSpent * 100) : 0;
+                    return `
+                      <div>
+                        <div class="flex justify-between text-sm mb-1">
+                          <span class="font-medium">${escapeHtml(cat)}</span>
+                          <span class="number font-semibold">${fmt(amount)}</span>
+                        </div>
+                        <div class="h-2 rounded-full" style="background: var(--color-border);">
+                          <div class="h-full rounded-full transition-all"
+                               style="width: ${pct}%; background: var(--color-primary);"></div>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                  <p class="text-xs italic mt-3" style="color: var(--color-text-subtle);">
+                    💡 Cuando tengas gastos en más categorías, verás un gráfico aquí.
+                  </p>
+                </div>
+              `}
+            </div>
+
+            <!-- Persona: gráfico si >1, lista si =1 -->
+            <div class="card p-4">
+              <h3 class="font-semibold mb-3">Gastos por persona</h3>
+              ${personCount > 1 ? `
+                <div class="relative" style="height: 220px;">
+                  <canvas id="chart-persons"></canvas>
+                </div>
+              ` : `
+                <div class="space-y-2">
+                  ${personEntriesPreview.map(([name, amount]) => {
+                    const p = State.config.persons.find(pp => pp.name === name);
+                    const pct = totalSpent > 0 ? (amount / totalSpent * 100) : 0;
+                    return `
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <div class="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                               style="background: ${p ? p.color : '#9A9A9A'};">
+                            ${escapeHtml(name.charAt(0).toUpperCase())}
+                          </div>
+                          <span class="font-medium flex-1">${escapeHtml(name)}</span>
+                          <span class="number font-semibold">${fmt(amount)}</span>
+                        </div>
+                        <div class="h-2 rounded-full ml-8" style="background: var(--color-border);">
+                          <div class="h-full rounded-full transition-all"
+                               style="width: ${pct}%; background: ${p ? p.color : 'var(--color-primary)'};"></div>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                  <p class="text-xs italic mt-3" style="color: var(--color-text-subtle);">
+                    💡 Cuando otra persona del hogar registre gastos, verás un gráfico comparativo.
+                  </p>
+                </div>
+              `}
             </div>
           </div>
-          <div class="card p-4">
-            <h3 class="font-semibold mb-4">Gastos por persona</h3>
-            <div class="relative" style="height: 240px;">
-              <canvas id="chart-persons"></canvas>
-            </div>
-          </div>
-        </div>
-      ` : `
+        `;
+      })() : `
         <div class="card p-8 text-center">
           <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3" style="color: var(--color-text-subtle);"></i>
           <p style="color: var(--color-text-muted);">Aún no hay gastos registrados este mes</p>
-          <button data-action="switch-view" data-view="register" class="btn btn-primary mt-4">
+          <button data-action="open-add-expense" class="btn btn-primary mt-4">
             <i data-lucide="plus" class="w-4 h-4"></i>
             Registrar primer gasto
           </button>
@@ -1706,7 +1780,7 @@ function renderDashboard() {
       ${State.transactions.length > 0 ? `
         <div class="card p-4">
           <h3 class="font-semibold mb-4">Tendencia últimos 6 meses</h3>
-          <div class="relative" style="height: 220px;">
+          <div class="relative" style="height: 180px;">
             <canvas id="chart-trend"></canvas>
           </div>
         </div>
@@ -1829,6 +1903,7 @@ function renderDashboardCharts() {
 
   const ctxCat = document.getElementById('chart-categories');
   if (ctxCat) {
+    const isMobile = window.innerWidth < 640;
     new Chart(ctxCat, {
       type: 'doughnut',
       data: {
@@ -1837,7 +1912,7 @@ function renderDashboardCharts() {
           data: catEntries.map(e => e[1]),
           backgroundColor: catEntries.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
           borderWidth: 2,
-          borderColor: '#FFFFFF'
+          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim() || '#FFFFFF'
         }]
       },
       options: {
@@ -1845,8 +1920,13 @@ function renderDashboardCharts() {
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            position: 'right',
-            labels: { font: { family: 'DM Sans', size: 12 }, padding: 12, boxWidth: 12 }
+            position: isMobile ? 'bottom' : 'right',
+            labels: {
+              font: { family: 'DM Sans', size: 11 },
+              padding: 8,
+              boxWidth: 12,
+              color: getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim()
+            }
           },
           tooltip: {
             callbacks: { label: (c) => ` ${c.label}: ${fmt(c.parsed)}` }
@@ -1872,6 +1952,8 @@ function renderDashboardCharts() {
 
   const ctxP = document.getElementById('chart-persons');
   if (ctxP) {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim();
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--color-border').trim();
     new Chart(ctxP, {
       type: 'bar',
       data: {
@@ -1879,7 +1961,8 @@ function renderDashboardCharts() {
         datasets: [{
           data: personEntries.map(e => e[1]),
           backgroundColor: personColors,
-          borderRadius: 8
+          borderRadius: 8,
+          maxBarThickness: 80
         }]
       },
       options: {
@@ -1890,8 +1973,14 @@ function renderDashboardCharts() {
           tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } }
         },
         scales: {
-          y: { ticks: { callback: (v) => '$' + (v/1000).toFixed(0) + 'k', font: { family: 'DM Sans' } }, grid: { color: '#E8E2D8' } },
-          x: { grid: { display: false }, ticks: { font: { family: 'DM Sans' } } }
+          y: {
+            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k', font: { family: 'DM Sans' }, color: textColor },
+            grid: { color: borderColor }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'DM Sans' }, color: textColor }
+          }
         }
       }
     });
@@ -1911,19 +2000,23 @@ function renderDashboardCharts() {
 
   const ctxT = document.getElementById('chart-trend');
   if (ctxT) {
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+    const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim();
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim();
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--color-border').trim();
     new Chart(ctxT, {
       type: 'line',
       data: {
         labels: trend.map(t => t.label),
         datasets: [{
           data: trend.map(t => t.total),
-          borderColor: '#0F4C5C',
-          backgroundColor: 'rgba(15,76,92,0.1)',
+          borderColor: primaryColor,
+          backgroundColor: primaryColor + '22',
           fill: true,
           tension: 0.35,
           pointRadius: 5,
-          pointBackgroundColor: '#0F4C5C',
-          pointBorderColor: '#FFFFFF',
+          pointBackgroundColor: primaryColor,
+          pointBorderColor: surfaceColor,
           pointBorderWidth: 2,
           borderWidth: 3
         }]
@@ -1936,8 +2029,14 @@ function renderDashboardCharts() {
           tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } }
         },
         scales: {
-          y: { ticks: { callback: (v) => '$' + (v/1000).toFixed(0) + 'k', font: { family: 'DM Sans' } }, grid: { color: '#E8E2D8' } },
-          x: { grid: { display: false }, ticks: { font: { family: 'DM Sans' } } }
+          y: {
+            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k', font: { family: 'DM Sans' }, color: textColor },
+            grid: { color: borderColor }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'DM Sans' }, color: textColor }
+          }
         }
       }
     });
