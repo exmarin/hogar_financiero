@@ -470,54 +470,87 @@ const DEFAULT_PAYMENT_METHODS = [
 ];
 
 // =============================================================================
-// API CLIENT (con auth por clave compartida)
+// API CLIENT (auth con email + password + token)
 // =============================================================================
 const API = {
-  appKey: null,
+  token: null,
+  email: null,
   baseURL: '/api',
 
-  setAppKey(key) {
-    this.appKey = key;
-    localStorage.setItem('fin_app_key', key);
+  setSession(token, email) {
+    this.token = token;
+    this.email = email;
+    localStorage.setItem('fin_token', token);
+    localStorage.setItem('fin_email', email);
   },
-  loadAppKey() {
-    this.appKey = localStorage.getItem('fin_app_key');
-    return this.appKey;
+  loadSession() {
+    this.token = localStorage.getItem('fin_token');
+    this.email = localStorage.getItem('fin_email');
+    return this.token;
   },
-  clearAppKey() {
-    this.appKey = null;
-    localStorage.removeItem('fin_app_key');
+  clearSession() {
+    this.token = null;
+    this.email = null;
+    localStorage.removeItem('fin_token');
+    localStorage.removeItem('fin_email');
+  },
+
+  authHeaders() {
+    return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
+  },
+
+  async _fetch(url, options = {}) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const e = new Error(err.error || `HTTP ${res.status}`);
+      e.status = res.status;
+      throw e;
+    }
+    return res.json();
+  },
+
+  async register(email, password) {
+    return await this._fetch(`${this.baseURL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+  },
+
+  async login(email, password) {
+    return await this._fetch(`${this.baseURL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+  },
+
+  async logoutServer() {
+    if (!this.token) return;
+    try {
+      await fetch(`${this.baseURL}/auth/logout`, {
+        method: 'POST',
+        headers: this.authHeaders()
+      });
+    } catch (e) { /* ignore */ }
   },
 
   async fetchState() {
-    const res = await fetch(`${this.baseURL}/state`, {
-      headers: { 'X-App-Key': this.appKey || '' }
+    return await this._fetch(`${this.baseURL}/state`, {
+      headers: this.authHeaders()
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const e = new Error(err.error || `HTTP ${res.status}`);
-      e.status = res.status;
-      throw e;
-    }
-    return res.json();
   },
 
   async saveState(payload) {
-    const res = await fetch(`${this.baseURL}/state`, {
+    return await this._fetch(`${this.baseURL}/state`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-App-Key': this.appKey || ''
+        ...this.authHeaders()
       },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const e = new Error(err.error || `HTTP ${res.status}`);
-      e.status = res.status;
-      throw e;
-    }
-    return res.json();
   }
 };
 
@@ -3387,71 +3420,239 @@ const Theme = {
 Theme.init();
 
 // =============================================================================
-// LOGIN SCREEN
+// AUTH SCREENS (Login + Registro)
 // =============================================================================
-function renderLogin(errorMsg) {
+const AuthForm = {
+  mode: 'login', // 'login' | 'register'
+  email: '',
+  password: '',
+  passwordConfirm: '',
+  loading: false,
+  error: null,
+  successMsg: null,
+};
+
+function renderAuth() {
   const root = document.getElementById('app');
+  const isLogin = AuthForm.mode === 'login';
+
   root.innerHTML = `
     <div class="min-h-screen flex items-center justify-center p-4 texture-paper">
       <div class="w-full max-w-md animate-slide-up">
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style="background: var(--color-primary);">
-            <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+            <i data-lucide="wallet" class="w-8 h-8 text-white"></i>
           </div>
-          <h1 class="font-display text-4xl font-bold mb-2">Finanzas</h1>
-          <p style="color: var(--color-text-muted);">Ingresa la clave compartida para acceder</p>
+          <h1 class="font-display text-4xl font-bold mb-2">Hogar Financiero</h1>
+          <p style="color: var(--color-text-muted);">Sistema de gestión de gastos familiares</p>
         </div>
 
         <div class="card p-6">
-          <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
-            CLAVE DE ACCESO
-          </label>
-          <input type="password" id="login-key" class="input mb-4"
-                 placeholder="Tu clave secreta..."
-                 autocomplete="current-password" autofocus>
-          ${errorMsg ? `
-            <div class="rounded-lg p-3 mb-4 text-sm" style="background: var(--color-danger-soft); color: var(--color-danger);">
-              <i data-lucide="alert-circle" class="w-4 h-4 inline-block mr-1"></i>
-              ${escapeHtml(errorMsg)}
+          <!-- Toggle login/register -->
+          <div class="grid grid-cols-2 gap-2 mb-5 p-1 rounded-lg" style="background: var(--color-bg-2);">
+            <button data-auth-mode="login"
+                    class="py-2 px-3 rounded-md text-sm font-semibold transition-all"
+                    style="background: ${isLogin ? 'var(--color-surface)' : 'transparent'};
+                           color: ${isLogin ? 'var(--color-primary)' : 'var(--color-text-muted)'};
+                           ${isLogin ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
+              Iniciar sesión
+            </button>
+            <button data-auth-mode="register"
+                    class="py-2 px-3 rounded-md text-sm font-semibold transition-all"
+                    style="background: ${!isLogin ? 'var(--color-surface)' : 'transparent'};
+                           color: ${!isLogin ? 'var(--color-primary)' : 'var(--color-text-muted)'};
+                           ${!isLogin ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
+              Crear cuenta
+            </button>
+          </div>
+
+          ${AuthForm.successMsg ? `
+            <div class="rounded-lg p-3 mb-4 text-sm flex items-start gap-2"
+                 style="background: var(--color-success-soft); color: var(--color-success);">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+              <span>${escapeHtml(AuthForm.successMsg)}</span>
             </div>
           ` : ''}
-          <button id="login-btn" class="btn btn-primary w-full" style="padding: 12px;">
-            <i data-lucide="log-in" class="w-4 h-4"></i>
-            Acceder
-          </button>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+                EMAIL
+              </label>
+              <input type="email" id="auth-email" class="input"
+                     placeholder="tu@email.com"
+                     autocomplete="email"
+                     value="${escapeHtml(AuthForm.email)}">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+                CONTRASEÑA
+              </label>
+              <input type="password" id="auth-password" class="input"
+                     placeholder="${isLogin ? 'Tu contraseña' : 'Mínimo 6 caracteres'}"
+                     autocomplete="${isLogin ? 'current-password' : 'new-password'}"
+                     value="${escapeHtml(AuthForm.password)}">
+            </div>
+
+            ${!isLogin ? `
+              <div>
+                <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+                  CONFIRMAR CONTRASEÑA
+                </label>
+                <input type="password" id="auth-password-confirm" class="input"
+                       placeholder="Repite tu contraseña"
+                       autocomplete="new-password"
+                       value="${escapeHtml(AuthForm.passwordConfirm)}">
+              </div>
+            ` : ''}
+
+            ${AuthForm.error ? `
+              <div class="rounded-lg p-3 text-sm flex items-start gap-2"
+                   style="background: var(--color-danger-soft); color: var(--color-danger);">
+                <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                <span>${escapeHtml(AuthForm.error)}</span>
+              </div>
+            ` : ''}
+
+            <button id="auth-submit" class="btn btn-primary w-full" style="padding: 12px;"
+                    ${AuthForm.loading ? 'disabled' : ''}>
+              ${AuthForm.loading ? `
+                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                ${isLogin ? 'Iniciando sesión...' : 'Creando cuenta...'}
+              ` : `
+                <i data-lucide="${isLogin ? 'log-in' : 'user-plus'}" class="w-4 h-4"></i>
+                ${isLogin ? 'Iniciar sesión' : 'Crear cuenta'}
+              `}
+            </button>
+          </div>
         </div>
 
         <p class="text-center text-xs mt-6" style="color: var(--color-text-subtle);">
-          La clave se guarda en este dispositivo · Compártela con quien quiera acceder
+          ${isLogin
+            ? '¿Primera vez aquí? Cambiá a "Crear cuenta" arriba.'
+            : 'Tus datos estarán privados en tu propio hogar digital.'}
         </p>
       </div>
     </div>
   `;
   if (window.lucide) lucide.createIcons();
 
-  const input = document.getElementById('login-key');
-  const btn = document.getElementById('login-btn');
-  const submit = async () => {
-    const key = input.value.trim();
-    if (!key) return;
-    btn.disabled = true;
-    btn.innerHTML = '<div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> Verificando...';
-    API.setAppKey(key);
+  // Bindings
+  const emailInput = document.getElementById('auth-email');
+  const passwordInput = document.getElementById('auth-password');
+  const passwordConfirmInput = document.getElementById('auth-password-confirm');
+  const submitBtn = document.getElementById('auth-submit');
+
+  if (emailInput) emailInput.addEventListener('input', e => AuthForm.email = e.target.value);
+  if (passwordInput) passwordInput.addEventListener('input', e => AuthForm.password = e.target.value);
+  if (passwordConfirmInput) passwordConfirmInput.addEventListener('input', e => AuthForm.passwordConfirm = e.target.value);
+
+  // Toggle modes
+  document.querySelectorAll('[data-auth-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      AuthForm.mode = btn.dataset.authMode;
+      AuthForm.error = null;
+      AuthForm.successMsg = null;
+      renderAuth();
+    });
+  });
+
+  // Submit on Enter
+  [emailInput, passwordInput, passwordConfirmInput].forEach(el => {
+    if (!el) return;
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAuthSubmit();
+      }
+    });
+  });
+
+  // Submit button
+  if (submitBtn) submitBtn.addEventListener('click', handleAuthSubmit);
+
+  // Auto-focus
+  if (emailInput && !AuthForm.email) emailInput.focus();
+  else if (passwordInput) passwordInput.focus();
+}
+
+async function handleAuthSubmit() {
+  AuthForm.error = null;
+  const email = AuthForm.email.trim().toLowerCase();
+  const password = AuthForm.password;
+
+  // Validaciones
+  if (!email || !email.includes('@')) {
+    AuthForm.error = 'Ingresá un email válido';
+    renderAuth();
+    return;
+  }
+  if (!password) {
+    AuthForm.error = 'Ingresá tu contraseña';
+    renderAuth();
+    return;
+  }
+
+  if (AuthForm.mode === 'register') {
+    if (password.length < 6) {
+      AuthForm.error = 'La contraseña debe tener al menos 6 caracteres';
+      renderAuth();
+      return;
+    }
+    if (password !== AuthForm.passwordConfirm) {
+      AuthForm.error = 'Las contraseñas no coinciden';
+      renderAuth();
+      return;
+    }
+  }
+
+  AuthForm.loading = true;
+  renderAuth();
+
+  try {
+    const result = AuthForm.mode === 'register'
+      ? await API.register(email, password)
+      : await API.login(email, password);
+
+    API.setSession(result.token, result.email);
+
+    // Si fue registro y hubo migración, mostrar mensaje
+    if (result.migrated) {
+      showToast('✓ Datos previos importados a tu cuenta', 'success');
+    }
+
+    // Limpiar form
+    AuthForm.email = '';
+    AuthForm.password = '';
+    AuthForm.passwordConfirm = '';
+    AuthForm.loading = false;
+    AuthForm.error = null;
+
+    // Cargar app
     try {
       await State.loadFromAPI();
       startPolling();
       render();
     } catch (err) {
-      API.clearAppKey();
-      if (err.status === 401) {
-        renderLogin('Clave incorrecta');
-      } else {
-        renderLogin('Error de conexión: ' + err.message);
-      }
+      AuthForm.error = 'Error cargando datos: ' + err.message;
+      AuthForm.loading = false;
+      API.clearSession();
+      renderAuth();
     }
-  };
-  btn.addEventListener('click', submit);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  } catch (err) {
+    AuthForm.loading = false;
+    AuthForm.error = err.message || 'Error desconocido';
+    renderAuth();
+  }
+}
+
+// Alias por compatibilidad
+function renderLogin(errorMsg) {
+  if (errorMsg) AuthForm.error = errorMsg;
+  AuthForm.mode = 'login';
+  AuthForm.loading = false;
+  renderAuth();
 }
 
 // =============================================================================
@@ -3527,6 +3728,15 @@ function startPolling() {
         render();
       }
     } catch (err) {
+      if (err.status === 401) {
+        // Token expiró, forzar re-login
+        if (pollingInterval) clearInterval(pollingInterval);
+        API.clearSession();
+        AuthForm.error = 'Tu sesión expiró. Iniciá sesión de nuevo.';
+        AuthForm.mode = 'login';
+        renderAuth();
+        return;
+      }
       State.syncStatus = 'error';
       State.syncError = err.message;
       updateSyncIndicator();
@@ -3573,10 +3783,11 @@ function importJSON() {
 // =============================================================================
 // LOGOUT
 // =============================================================================
-function logout() {
-  if (!confirm2('¿Cerrar sesión? Tendrás que ingresar la clave de nuevo en este dispositivo. Tus datos en la nube NO se borran.')) return;
+async function logout() {
+  if (!confirm2('¿Cerrar sesión? Tendrás que iniciar sesión de nuevo. Tus datos en la nube NO se borran.')) return;
   if (pollingInterval) clearInterval(pollingInterval);
-  API.clearAppKey();
+  await API.logoutServer();
+  API.clearSession();
   State.config = null;
   State.transactions = [];
   State.subscriptions = [];
@@ -3584,16 +3795,22 @@ function logout() {
   State.currentUser = null;
   State.version = 0;
   State.loaded = false;
-  renderLogin();
+  AuthForm.mode = 'login';
+  AuthForm.email = '';
+  AuthForm.password = '';
+  AuthForm.passwordConfirm = '';
+  AuthForm.error = null;
+  AuthForm.successMsg = null;
+  renderAuth();
 }
 
 // =============================================================================
 // INIT
 // =============================================================================
 async function init() {
-  const savedKey = API.loadAppKey();
-  if (!savedKey) {
-    renderLogin();
+  const savedToken = API.loadSession();
+  if (!savedToken) {
+    renderAuth();
     return;
   }
   try {
@@ -3602,10 +3819,12 @@ async function init() {
     render();
   } catch (err) {
     if (err.status === 401) {
-      API.clearAppKey();
-      renderLogin('La clave guardada ya no es válida');
+      API.clearSession();
+      AuthForm.error = 'Tu sesión expiró. Iniciá sesión de nuevo.';
+      renderAuth();
     } else {
-      renderLogin('Error de conexión: ' + err.message);
+      AuthForm.error = 'Error de conexión: ' + err.message;
+      renderAuth();
     }
   }
 }
