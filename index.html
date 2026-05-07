@@ -510,11 +510,11 @@ const API = {
     return res.json();
   },
 
-  async register(email, password) {
+  async register(email, password, inviteCode = null) {
     return await this._fetch(`${this.baseURL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, inviteCode })
     });
   },
 
@@ -534,6 +534,50 @@ const API = {
         headers: this.authHeaders()
       });
     } catch (e) { /* ignore */ }
+  },
+
+  async previewInvite(code) {
+    return await this._fetch(`${this.baseURL}/invite/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+  },
+
+  async createInvite() {
+    return await this._fetch(`${this.baseURL}/invite/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: '{}'
+    });
+  },
+
+  async listInvites() {
+    return await this._fetch(`${this.baseURL}/invite/list`, {
+      headers: this.authHeaders()
+    });
+  },
+
+  async revokeInvite(code) {
+    return await this._fetch(`${this.baseURL}/invite/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify({ code })
+    });
+  },
+
+  async getMembers() {
+    return await this._fetch(`${this.baseURL}/members`, {
+      headers: this.authHeaders()
+    });
+  },
+
+  async removeMember(email) {
+    return await this._fetch(`${this.baseURL}/members`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify({ email })
+    });
   },
 
   async fetchState() {
@@ -1257,7 +1301,12 @@ function bindApp() {
   if (State.view === 'transactions') bindTransactions();
   if (State.view === 'subscriptions') bindSubscriptions();
   if (State.view === 'goals') bindGoals();
-  if (State.view === 'config') bindConfig();
+  if (State.view === 'config') {
+    bindConfig();
+    // Cargar miembros e invitaciones (async)
+    loadAndRenderMembers();
+    loadAndRenderInvites();
+  }
   if (State.view === 'dashboard') renderDashboardCharts();
 
   // Click outside user menu
@@ -1346,6 +1395,18 @@ function handleAppAction(e) {
       break;
     case 'add-goal-saving':
       addGoalSaving(ds.id);
+      break;
+    case 'create-invite':
+      createInvite();
+      break;
+    case 'copy-invite':
+      copyInvite(ds.code);
+      break;
+    case 'revoke-invite':
+      revokeInvite(ds.code);
+      break;
+    case 'remove-member':
+      removeMember(ds.email);
       break;
     case 'reset-data':
       resetAllData();
@@ -2736,6 +2797,166 @@ function addGoalSaving(id) {
 }
 
 // =============================================================================
+// MEMBERS & INVITATIONS
+// =============================================================================
+async function loadAndRenderMembers() {
+  const listEl = document.getElementById('members-list');
+  const badgeEl = document.getElementById('members-count-badge');
+  if (!listEl || !badgeEl) return;
+
+  try {
+    const data = await API.getMembers();
+    const members = data.members || [];
+    const yourEmail = data.yourEmail;
+    const youAreAdmin = members.find(m => m.email === yourEmail)?.role === 'admin';
+
+    badgeEl.textContent = `${members.length} / ${data.maxMembers}`;
+
+    if (members.length === 0) {
+      listEl.innerHTML = '<p class="text-sm" style="color: var(--color-text-muted);">Sin miembros</p>';
+      return;
+    }
+
+    listEl.innerHTML = members.map(m => {
+      const isYou = m.email === yourEmail;
+      const isAdmin = m.role === 'admin';
+      return `
+        <div class="flex items-center justify-between p-3 rounded-lg" style="background: var(--color-bg-2);">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                 style="background: ${isAdmin ? 'var(--color-primary)' : 'var(--color-accent)'};">
+              ${escapeHtml(m.email.charAt(0).toUpperCase())}
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold truncate">${escapeHtml(m.email)}${isYou ? ' (vos)' : ''}</p>
+              <p class="text-xs" style="color: var(--color-text-muted);">
+                ${isAdmin ? '👑 Administrador' : 'Miembro'}
+                ${m.joinedAt ? ' · Se unió ' + new Date(m.joinedAt).toLocaleDateString('es-CL') : ''}
+              </p>
+            </div>
+          </div>
+          ${youAreAdmin && !isYou && !isAdmin ? `
+            <button data-action="remove-member" data-email="${escapeHtml(m.email)}"
+                    class="btn btn-ghost p-2" title="Quitar del hogar"
+                    style="color: var(--color-danger);">
+              <i data-lucide="user-x" class="w-4 h-4"></i>
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    listEl.innerHTML = `<p class="text-sm" style="color: var(--color-danger);">Error: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function loadAndRenderInvites() {
+  const el = document.getElementById('invites-list');
+  if (!el) return;
+  try {
+    const data = await API.listInvites();
+    const active = (data.invites || []).filter(i => !i.usedAt && (!i.expiresAt || i.expiresAt > Date.now()));
+    if (active.length === 0) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = `
+      <div class="border-t pt-3 mt-3" style="border-color: var(--color-border);">
+        <p class="text-xs font-semibold mb-2" style="color: var(--color-text-muted);">
+          INVITACIONES PENDIENTES
+        </p>
+        ${active.map(inv => {
+          const days = Math.max(0, Math.ceil((inv.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)));
+          return `
+            <div class="flex items-center justify-between p-3 rounded-lg mb-2"
+                 style="background: var(--color-warning-soft);">
+              <div class="min-w-0 flex-1">
+                <p class="font-mono text-sm font-bold tracking-wider" style="color: var(--color-warning);">
+                  ${escapeHtml(inv.code)}
+                </p>
+                <p class="text-xs" style="color: var(--color-text-muted);">
+                  Expira en ${days} ${days === 1 ? 'día' : 'días'}
+                </p>
+              </div>
+              <div class="flex gap-1">
+                <button data-action="copy-invite" data-code="${escapeHtml(inv.code)}"
+                        class="btn btn-ghost p-2" title="Copiar código">
+                  <i data-lucide="copy" class="w-4 h-4"></i>
+                </button>
+                <button data-action="revoke-invite" data-code="${escapeHtml(inv.code)}"
+                        class="btn btn-ghost p-2" title="Cancelar invitación"
+                        style="color: var(--color-danger);">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    // silencioso
+  }
+}
+
+async function createInvite() {
+  try {
+    const result = await API.createInvite();
+    showToast(`✓ Código creado: ${result.code}`, 'success');
+
+    // Intentar copiar al clipboard
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(result.code);
+        showToast('✓ Código copiado al portapapeles', 'success');
+      } catch (e) { /* ignore */ }
+    }
+
+    await loadAndRenderInvites();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function copyInvite(code) {
+  if (!navigator.clipboard) {
+    showToast('No se pudo copiar (navegador antiguo)', 'error');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    showToast('✓ Código copiado al portapapeles');
+  } catch (e) {
+    showToast('No se pudo copiar', 'error');
+  }
+}
+
+async function revokeInvite(code) {
+  if (!confirm2(`¿Cancelar la invitación ${code}? Quien tenga este código ya no podrá usarlo.`)) return;
+  try {
+    await API.revokeInvite(code);
+    showToast('✓ Invitación cancelada');
+    await loadAndRenderInvites();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function removeMember(email) {
+  if (!confirm2(`¿Quitar a ${email} del hogar? Su cuenta será eliminada y perderá acceso. Los datos del hogar permanecen.`)) return;
+  try {
+    await API.removeMember(email);
+    showToast('✓ Miembro removido');
+    await loadAndRenderMembers();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// =============================================================================
 // CONFIG VIEW
 // =============================================================================
 function renderConfig() {
@@ -2815,6 +3036,42 @@ function renderConfig() {
             <i data-lucide="plus" class="w-4 h-4"></i>
           </button>
         </div>
+      </div>
+
+      <!-- Miembros del hogar -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-display font-bold text-lg flex items-center gap-2">
+            <i data-lucide="users" class="w-5 h-5" style="color: var(--color-primary);"></i>
+            Miembros del hogar
+          </h3>
+          <span id="members-count-badge" class="text-xs px-2 py-1 rounded-md"
+                style="background: var(--color-primary-soft); color: var(--color-primary);">
+            Cargando…
+          </span>
+        </div>
+
+        <p class="text-sm mb-3" style="color: var(--color-text-muted);">
+          Las personas con cuenta que pueden ver y editar este hogar (máximo 4).
+        </p>
+
+        <div id="members-list" class="space-y-2 mb-3">
+          <p class="text-sm" style="color: var(--color-text-muted);">Cargando miembros...</p>
+        </div>
+
+        <div class="border-t pt-3 mt-3" style="border-color: var(--color-border);">
+          <p class="text-sm font-semibold mb-2">Invitar a alguien</p>
+          <p class="text-xs mb-3" style="color: var(--color-text-muted);">
+            Genera un código y compártelo con tu pareja o familia.
+            Ellos lo usarán al crear su cuenta para unirse a este mismo hogar.
+          </p>
+          <button data-action="create-invite" class="btn btn-primary w-full">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            Generar código de invitación
+          </button>
+        </div>
+
+        <div id="invites-list" class="mt-3"></div>
       </div>
 
       <!-- Datos -->
@@ -3420,13 +3677,15 @@ const Theme = {
 Theme.init();
 
 // =============================================================================
-// AUTH SCREENS (Login + Registro)
+// AUTH SCREENS (Login + Registro + Unirse a hogar con código)
 // =============================================================================
 const AuthForm = {
-  mode: 'login', // 'login' | 'register'
+  mode: 'login', // 'login' | 'register' | 'join'
   email: '',
   password: '',
   passwordConfirm: '',
+  inviteCode: '',
+  invitePreview: null, // { invitedBy } cuando un código fue validado
   loading: false,
   error: null,
   successMsg: null,
@@ -3435,6 +3694,8 @@ const AuthForm = {
 function renderAuth() {
   const root = document.getElementById('app');
   const isLogin = AuthForm.mode === 'login';
+  const isJoin = AuthForm.mode === 'join';
+  const isRegister = AuthForm.mode === 'register';
 
   root.innerHTML = `
     <div class="min-h-screen flex items-center justify-center p-4 texture-paper">
@@ -3448,23 +3709,41 @@ function renderAuth() {
         </div>
 
         <div class="card p-6">
-          <!-- Toggle login/register -->
-          <div class="grid grid-cols-2 gap-2 mb-5 p-1 rounded-lg" style="background: var(--color-bg-2);">
+          <!-- Toggle login/register/join -->
+          <div class="grid grid-cols-3 gap-1 mb-5 p-1 rounded-lg" style="background: var(--color-bg-2);">
             <button data-auth-mode="login"
-                    class="py-2 px-3 rounded-md text-sm font-semibold transition-all"
+                    class="py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all"
                     style="background: ${isLogin ? 'var(--color-surface)' : 'transparent'};
                            color: ${isLogin ? 'var(--color-primary)' : 'var(--color-text-muted)'};
                            ${isLogin ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
-              Iniciar sesión
+              Ingresar
             </button>
             <button data-auth-mode="register"
-                    class="py-2 px-3 rounded-md text-sm font-semibold transition-all"
-                    style="background: ${!isLogin ? 'var(--color-surface)' : 'transparent'};
-                           color: ${!isLogin ? 'var(--color-primary)' : 'var(--color-text-muted)'};
-                           ${!isLogin ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
-              Crear cuenta
+                    class="py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all"
+                    style="background: ${isRegister ? 'var(--color-surface)' : 'transparent'};
+                           color: ${isRegister ? 'var(--color-primary)' : 'var(--color-text-muted)'};
+                           ${isRegister ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
+              Crear hogar
+            </button>
+            <button data-auth-mode="join"
+                    class="py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all"
+                    style="background: ${isJoin ? 'var(--color-surface)' : 'transparent'};
+                           color: ${isJoin ? 'var(--color-primary)' : 'var(--color-text-muted)'};
+                           ${isJoin ? 'box-shadow: 0 1px 3px rgba(0,0,0,0.08);' : ''}">
+              Unirme
             </button>
           </div>
+
+          ${isJoin && AuthForm.invitePreview ? `
+            <div class="rounded-lg p-3 mb-4 text-sm flex items-start gap-2"
+                 style="background: var(--color-success-soft); color: var(--color-success);">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+              <div>
+                <strong>Código válido</strong><br>
+                <span class="text-xs">Te invita: ${escapeHtml(AuthForm.invitePreview.invitedBy)}</span>
+              </div>
+            </div>
+          ` : ''}
 
           ${AuthForm.successMsg ? `
             <div class="rounded-lg p-3 mb-4 text-sm flex items-start gap-2"
@@ -3475,6 +3754,22 @@ function renderAuth() {
           ` : ''}
 
           <div class="space-y-3">
+            ${isJoin ? `
+              <div>
+                <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
+                  CÓDIGO DE INVITACIÓN
+                </label>
+                <input type="text" id="auth-invite-code" class="input"
+                       placeholder="INV-ABCD-EFGH"
+                       autocomplete="off"
+                       style="text-transform: uppercase; letter-spacing: 1px; font-family: monospace;"
+                       value="${escapeHtml(AuthForm.inviteCode)}">
+                <p class="text-xs mt-1" style="color: var(--color-text-subtle);">
+                  Código que te compartió quien creó el hogar
+                </p>
+              </div>
+            ` : ''}
+
             <div>
               <label class="block text-xs font-medium mb-1" style="color: var(--color-text-muted);">
                 EMAIL
@@ -3519,10 +3814,10 @@ function renderAuth() {
                     ${AuthForm.loading ? 'disabled' : ''}>
               ${AuthForm.loading ? `
                 <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                ${isLogin ? 'Iniciando sesión...' : 'Creando cuenta...'}
+                ${isLogin ? 'Iniciando sesión...' : (isJoin ? 'Uniéndote...' : 'Creando hogar...')}
               ` : `
-                <i data-lucide="${isLogin ? 'log-in' : 'user-plus'}" class="w-4 h-4"></i>
-                ${isLogin ? 'Iniciar sesión' : 'Crear cuenta'}
+                <i data-lucide="${isLogin ? 'log-in' : (isJoin ? 'users' : 'home')}" class="w-4 h-4"></i>
+                ${isLogin ? 'Ingresar' : (isJoin ? 'Unirme al hogar' : 'Crear mi hogar')}
               `}
             </button>
           </div>
@@ -3530,8 +3825,10 @@ function renderAuth() {
 
         <p class="text-center text-xs mt-6" style="color: var(--color-text-subtle);">
           ${isLogin
-            ? '¿Primera vez aquí? Cambiá a "Crear cuenta" arriba.'
-            : 'Tus datos estarán privados en tu propio hogar digital.'}
+            ? '¿Primera vez? Cambiá a "Crear hogar" o "Unirme" arriba.'
+            : isJoin
+              ? '¿Tu pareja te compartió un código? Pegalo arriba y unite a su hogar.'
+              : 'Vas a crear un hogar nuevo donde podrás invitar a tu pareja después.'}
         </p>
       </div>
     </div>
@@ -3542,11 +3839,36 @@ function renderAuth() {
   const emailInput = document.getElementById('auth-email');
   const passwordInput = document.getElementById('auth-password');
   const passwordConfirmInput = document.getElementById('auth-password-confirm');
+  const inviteCodeInput = document.getElementById('auth-invite-code');
   const submitBtn = document.getElementById('auth-submit');
 
   if (emailInput) emailInput.addEventListener('input', e => AuthForm.email = e.target.value);
   if (passwordInput) passwordInput.addEventListener('input', e => AuthForm.password = e.target.value);
   if (passwordConfirmInput) passwordConfirmInput.addEventListener('input', e => AuthForm.passwordConfirm = e.target.value);
+
+  // Invite code: auto-validar al pegar/escribir un código completo
+  if (inviteCodeInput) {
+    inviteCodeInput.addEventListener('input', async e => {
+      const v = e.target.value.toUpperCase();
+      AuthForm.inviteCode = v;
+      e.target.value = v;
+      // Si tiene formato completo (INV-XXXX-XXXX), validar
+      if (/^INV-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(v)) {
+        try {
+          const preview = await API.previewInvite(v);
+          AuthForm.invitePreview = preview;
+          AuthForm.error = null;
+          renderAuth();
+        } catch (err) {
+          AuthForm.invitePreview = null;
+          AuthForm.error = err.message;
+          renderAuth();
+        }
+      } else {
+        AuthForm.invitePreview = null;
+      }
+    });
+  }
 
   // Toggle modes
   document.querySelectorAll('[data-auth-mode]').forEach(btn => {
@@ -3554,12 +3876,13 @@ function renderAuth() {
       AuthForm.mode = btn.dataset.authMode;
       AuthForm.error = null;
       AuthForm.successMsg = null;
+      AuthForm.invitePreview = null;
       renderAuth();
     });
   });
 
   // Submit on Enter
-  [emailInput, passwordInput, passwordConfirmInput].forEach(el => {
+  [emailInput, passwordInput, passwordConfirmInput, inviteCodeInput].forEach(el => {
     if (!el) return;
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
@@ -3569,11 +3892,10 @@ function renderAuth() {
     });
   });
 
-  // Submit button
   if (submitBtn) submitBtn.addEventListener('click', handleAuthSubmit);
 
-  // Auto-focus
-  if (emailInput && !AuthForm.email) emailInput.focus();
+  if (isJoin && inviteCodeInput && !AuthForm.inviteCode) inviteCodeInput.focus();
+  else if (emailInput && !AuthForm.email) emailInput.focus();
   else if (passwordInput) passwordInput.focus();
 }
 
@@ -3581,8 +3903,8 @@ async function handleAuthSubmit() {
   AuthForm.error = null;
   const email = AuthForm.email.trim().toLowerCase();
   const password = AuthForm.password;
+  const inviteCode = AuthForm.inviteCode.trim().toUpperCase();
 
-  // Validaciones
   if (!email || !email.includes('@')) {
     AuthForm.error = 'Ingresá un email válido';
     renderAuth();
@@ -3594,7 +3916,7 @@ async function handleAuthSubmit() {
     return;
   }
 
-  if (AuthForm.mode === 'register') {
+  if (AuthForm.mode === 'register' || AuthForm.mode === 'join') {
     if (password.length < 6) {
       AuthForm.error = 'La contraseña debe tener al menos 6 caracteres';
       renderAuth();
@@ -3607,29 +3929,41 @@ async function handleAuthSubmit() {
     }
   }
 
+  if (AuthForm.mode === 'join' && !inviteCode) {
+    AuthForm.error = 'Ingresá el código de invitación';
+    renderAuth();
+    return;
+  }
+
   AuthForm.loading = true;
   renderAuth();
 
   try {
-    const result = AuthForm.mode === 'register'
-      ? await API.register(email, password)
-      : await API.login(email, password);
+    let result;
+    if (AuthForm.mode === 'login') {
+      result = await API.login(email, password);
+    } else {
+      // register o join (ambos van al endpoint register, con o sin inviteCode)
+      result = await API.register(email, password, AuthForm.mode === 'join' ? inviteCode : null);
+    }
 
     API.setSession(result.token, result.email);
 
-    // Si fue registro y hubo migración, mostrar mensaje
     if (result.migrated) {
       showToast('✓ Datos previos importados a tu cuenta', 'success');
     }
+    if (result.joinedHogar) {
+      showToast('✓ Te uniste al hogar', 'success');
+    }
 
-    // Limpiar form
     AuthForm.email = '';
     AuthForm.password = '';
     AuthForm.passwordConfirm = '';
+    AuthForm.inviteCode = '';
+    AuthForm.invitePreview = null;
     AuthForm.loading = false;
     AuthForm.error = null;
 
-    // Cargar app
     try {
       await State.loadFromAPI();
       startPolling();
@@ -3647,7 +3981,6 @@ async function handleAuthSubmit() {
   }
 }
 
-// Alias por compatibilidad
 function renderLogin(errorMsg) {
   if (errorMsg) AuthForm.error = errorMsg;
   AuthForm.mode = 'login';
