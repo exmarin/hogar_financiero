@@ -57,6 +57,7 @@ export async function onRequestGet({ request, env }) {
         config: null,
         transactions: [],
         subscriptions: [],
+        goals: [],
         version: 0,
         updatedAt: null
       });
@@ -88,6 +89,7 @@ export async function onRequestPost({ request, env }) {
       config: body.config || null,
       transactions: Array.isArray(body.transactions) ? body.transactions : [],
       subscriptions: Array.isArray(body.subscriptions) ? body.subscriptions : [],
+      goals: Array.isArray(body.goals) ? body.goals : [],
       version: (body.version || 0) + 1,
       updatedAt: new Date().toISOString(),
       updatedBy: body.updatedBy || 'unknown'
