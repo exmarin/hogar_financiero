@@ -194,6 +194,10 @@ export async function onRequest(context) {
     if (path === 'invite/list' && request.method === 'GET') return await handleListInvites(request, env);
     if (path === 'invite/revoke' && request.method === 'POST') return await handleRevokeInvite(request, env);
     if (path === 'invite/preview' && request.method === 'POST') return await handlePreviewInvite(request, env);
+    if (path === 'invite/redeem' && request.method === 'POST') return await handleRedeemInvite(request, env);
+
+    // Hogar management
+    if (path === 'hogar/leave' && request.method === 'POST') return await handleLeaveHogar(request, env);
 
     return json({ error: 'Ruta no encontrada', path }, 404);
   } catch (err) {
@@ -569,5 +573,167 @@ async function handlePreviewInvite(request, env) {
     ok: true,
     invitedBy: invite.createdBy,
     hogarId: invite.hogarId,
+  });
+}
+
+// =============================================================================
+// REDEEM INVITE (usar código estando logueado)
+// Permite a un usuario que ya tiene cuenta unirse a otro hogar usando un código.
+// Abandona automáticamente su hogar actual.
+// =============================================================================
+async function handleRedeemInvite(request, env) {
+  const session = await getSession(env, request);
+  if (!session) return json({ error: 'No autenticado' }, 401);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'JSON inválido' }, 400); }
+  const code = normalizeInviteCode(body.code);
+
+  // Validar código
+  const inviteRaw = await env.FINANZAS_KV.get(`invite:${code}`);
+  if (!inviteRaw) return json({ error: 'Código de invitación inválido' }, 404);
+  const invite = JSON.parse(inviteRaw);
+  if (invite.usedAt) return json({ error: 'Este código ya fue usado' }, 410);
+  if (invite.expiresAt && invite.expiresAt < Date.now()) {
+    return json({ error: 'Código expirado' }, 410);
+  }
+
+  // No puede unirse a su mismo hogar
+  if (invite.hogarId === session.hogarId) {
+    return json({ error: 'Ya estás en ese hogar' }, 400);
+  }
+
+  // Verificar capacidad del hogar destino
+  const destMeta = await ensureHogarMeta(env, invite.hogarId, invite.createdBy);
+  if (!destMeta) return json({ error: 'Hogar destino no encontrado' }, 404);
+  if (destMeta.members.length >= MAX_MEMBERS_PER_HOGAR) {
+    return json({ error: `El hogar ya tiene el máximo de ${MAX_MEMBERS_PER_HOGAR} miembros` }, 403);
+  }
+  if (destMeta.members.find(m => m.email === session.email)) {
+    return json({ error: 'Ya eres miembro de este hogar' }, 409);
+  }
+
+  // Abandonar hogar actual
+  const currentMeta = await ensureHogarMeta(env, session.hogarId, session.email);
+  if (currentMeta) {
+    const wasAdmin = currentMeta.members.find(m => m.email === session.email)?.role === 'admin';
+    const otherMembers = currentMeta.members.filter(m => m.email !== session.email);
+
+    if (otherMembers.length === 0) {
+      // Era el único miembro: borrar hogar completo
+      await env.FINANZAS_KV.delete(`hogar:${session.hogarId}`);
+      await env.FINANZAS_KV.delete(`hogar_meta:${session.hogarId}`);
+      // Borrar invitaciones pendientes de ese hogar
+      const list = await env.FINANZAS_KV.list({ prefix: 'invite:' });
+      for (const k of list.keys) {
+        const raw = await env.FINANZAS_KV.get(k.name);
+        if (raw) {
+          const inv = JSON.parse(raw);
+          if (inv.hogarId === session.hogarId) {
+            await env.FINANZAS_KV.delete(k.name);
+          }
+        }
+      }
+    } else {
+      // Hay otros miembros: solo quitarme. Si era admin, pasar admin al primer miembro restante
+      currentMeta.members = otherMembers;
+      if (wasAdmin && currentMeta.members.length > 0) {
+        currentMeta.members[0].role = 'admin';
+      }
+      await saveHogarMeta(env, session.hogarId, currentMeta);
+    }
+  }
+
+  // Unirse al nuevo hogar
+  destMeta.members.push({
+    email: session.email,
+    role: 'member',
+    joinedAt: new Date().toISOString(),
+    invitedBy: invite.createdBy,
+  });
+  await saveHogarMeta(env, invite.hogarId, destMeta);
+
+  // Marcar invitación como usada
+  invite.usedAt = new Date().toISOString();
+  invite.usedBy = session.email;
+  await env.FINANZAS_KV.put(`invite:${code}`, JSON.stringify(invite));
+
+  // Actualizar usuario con nuevo hogarId
+  const userRaw = await env.FINANZAS_KV.get(`user:${session.email}`);
+  if (userRaw) {
+    const user = JSON.parse(userRaw);
+    user.hogarId = invite.hogarId;
+    await env.FINANZAS_KV.put(`user:${session.email}`, JSON.stringify(user));
+  }
+
+  // Crear nueva sesión con el nuevo hogarId (la vieja ya no es válida)
+  await env.FINANZAS_KV.delete(`session:${session.token}`);
+  const newToken = await createSession(env, session.email, invite.hogarId);
+
+  return json({
+    ok: true,
+    token: newToken,
+    email: session.email,
+    hogarId: invite.hogarId,
+  });
+}
+
+// =============================================================================
+// LEAVE HOGAR (abandonar el hogar actual sin unirse a otro)
+// Crea un hogar nuevo vacío para el usuario.
+// =============================================================================
+async function handleLeaveHogar(request, env) {
+  const session = await getSession(env, request);
+  if (!session) return json({ error: 'No autenticado' }, 401);
+
+  const currentMeta = await ensureHogarMeta(env, session.hogarId, session.email);
+  if (!currentMeta) return json({ error: 'Hogar no encontrado' }, 404);
+
+  const wasAdmin = currentMeta.members.find(m => m.email === session.email)?.role === 'admin';
+  const otherMembers = currentMeta.members.filter(m => m.email !== session.email);
+
+  // No permitir si soy admin único con miembros: tendría que transferir admin
+  if (wasAdmin && otherMembers.length === 0) {
+    // Soy el único miembro: borrar hogar completo
+    await env.FINANZAS_KV.delete(`hogar:${session.hogarId}`);
+    await env.FINANZAS_KV.delete(`hogar_meta:${session.hogarId}`);
+  } else {
+    currentMeta.members = otherMembers;
+    if (wasAdmin && currentMeta.members.length > 0) {
+      currentMeta.members[0].role = 'admin';
+    }
+    await saveHogarMeta(env, session.hogarId, currentMeta);
+  }
+
+  // Crear hogar nuevo vacío para el usuario
+  const newHogarId = randomId('h');
+  await createHogarMeta(env, newHogarId, session.email);
+  const emptyState = {
+    config: null,
+    transactions: [],
+    subscriptions: [],
+    goals: [],
+    version: 0,
+    updatedAt: null,
+    updatedBy: null,
+  };
+  await env.FINANZAS_KV.put(`hogar:${newHogarId}`, JSON.stringify(emptyState));
+
+  // Actualizar usuario con nuevo hogarId
+  const userRaw = await env.FINANZAS_KV.get(`user:${session.email}`);
+  if (userRaw) {
+    const user = JSON.parse(userRaw);
+    user.hogarId = newHogarId;
+    await env.FINANZAS_KV.put(`user:${session.email}`, JSON.stringify(user));
+  }
+
+  // Crear nueva sesión
+  await env.FINANZAS_KV.delete(`session:${session.token}`);
+  const newToken = await createSession(env, session.email, newHogarId);
+
+  return json({
+    ok: true,
+    token: newToken,
+    hogarId: newHogarId,
   });
 }
