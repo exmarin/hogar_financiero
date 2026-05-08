@@ -675,6 +675,22 @@ const API = {
     });
   },
 
+  async redeemInvite(code) {
+    return await this._fetch(`${this.baseURL}/invite/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify({ code })
+    });
+  },
+
+  async leaveHogar() {
+    return await this._fetch(`${this.baseURL}/hogar/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: '{}'
+    });
+  },
+
   async getMembers() {
     return await this._fetch(`${this.baseURL}/members`, {
       headers: this.authHeaders()
@@ -1563,6 +1579,9 @@ function handleAppAction(e) {
       break;
     case 'remove-member':
       removeMember(ds.email);
+      break;
+    case 'redeem-invite-btn':
+      redeemInviteFromConfig();
       break;
     case 'open-add-expense':
       Modal.show('register');
@@ -3696,6 +3715,76 @@ async function removeMember(email) {
   }
 }
 
+async function redeemInviteFromConfig() {
+  const input = document.getElementById('redeem-code-input');
+  if (!input) return;
+  const code = input.value.trim().toUpperCase();
+  if (!code) {
+    showToast('Ingresa un código', 'error');
+    return;
+  }
+  if (!/^INV-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) {
+    showToast('Formato de código inválido (debe ser INV-XXXX-XXXX)', 'error');
+    return;
+  }
+
+  // Validar el código primero (sin abandonar nada todavía)
+  let preview;
+  try {
+    preview = await API.previewInvite(code);
+  } catch (err) {
+    showToast('Código inválido: ' + err.message, 'error');
+    return;
+  }
+
+  // Confirmar con el usuario
+  const ok = confirm2(
+    `Te vas a unir al hogar de ${preview.invitedBy}.\n\n` +
+    `⚠️ ATENCIÓN: vas a abandonar tu hogar actual.\n` +
+    `Si sos el único miembro, tu hogar se elimina permanentemente.\n\n` +
+    `¿Continuar?`
+  );
+  if (!ok) return;
+
+  try {
+    showToast('Cambiando de hogar...', 'info');
+    const result = await API.redeemInvite(code);
+
+    // Actualizar sesión local con el nuevo token
+    API.setSession(result.token, result.email);
+
+    // Recargar todo desde cero con el nuevo hogar
+    showToast('✓ Te uniste al hogar correctamente', 'success');
+
+    // Limpiar input
+    input.value = '';
+
+    // Recargar app: detener polling, cargar nuevo state, reiniciar
+    if (typeof pollingInterval !== 'undefined' && pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    // Reset estado y recargar
+    State.config = null;
+    State.transactions = [];
+    State.subscriptions = [];
+    State.goals = [];
+    State.version = 0;
+    State.loaded = false;
+
+    await State.loadFromAPI();
+    startPolling();
+    State.view = 'dashboard';
+    render();
+
+    setTimeout(() => {
+      showToast('Bienvenido a tu nuevo hogar', 'success');
+    }, 500);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
 // =============================================================================
 // CONFIG VIEW
 // =============================================================================
@@ -3812,6 +3901,37 @@ function renderConfig() {
         </div>
 
         <div id="invites-list" class="mt-3"></div>
+      </div>
+
+      <!-- Unirme a otro hogar -->
+      <div class="card p-5">
+        <h3 class="font-display font-bold text-lg mb-3 flex items-center gap-2">
+          <i data-lucide="log-in" class="w-5 h-5" style="color: var(--color-primary);"></i>
+          Unirme a otro hogar
+        </h3>
+        <p class="text-sm mb-3" style="color: var(--color-text-muted);">
+          ¿Te invitaron a un hogar de pareja o familia? Ingresá el código aquí para unirte.
+        </p>
+
+        <div class="rounded-lg p-3 mb-3 text-sm flex items-start gap-2"
+             style="background: var(--color-warning-soft); color: var(--color-warning);">
+          <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+          <div>
+            <strong>Importante:</strong> Al unirte a otro hogar, abandonas el actual.
+            <strong>Los datos de este hogar se perderán</strong> si sos el único miembro.
+            Esta acción no se puede deshacer.
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="redeem-code-input" class="input flex-1"
+                 placeholder="INV-XXXX-XXXX"
+                 style="text-transform: uppercase; letter-spacing: 1px; font-family: monospace;">
+          <button data-action="redeem-invite-btn" class="btn btn-primary">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            Unirme
+          </button>
+        </div>
       </div>
 
       <!-- Datos -->
