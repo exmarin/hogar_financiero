@@ -1331,7 +1331,7 @@ function renderApp() {
       </header>
 
       <!-- Content -->
-      <main class="max-w-6xl mx-auto p-3 sm:p-4 pb-24 sm:pb-20 animate-fade-in">
+      <main class="max-w-6xl mx-auto p-2 sm:p-4 pb-24 sm:pb-20 animate-fade-in">
         ${State.view === 'dashboard' ? renderDashboard() : ''}
         ${State.view === 'register' ? renderRegister() : ''}
         ${State.view === 'transactions' ? renderTransactions() : ''}
@@ -1698,10 +1698,10 @@ function renderDashboard() {
         return `
           <div class="grid lg:grid-cols-2 gap-4">
             <!-- Categoría: gráfico si >1, lista si =1 -->
-            <div class="card p-4">
+            <div class="card p-3 sm:p-4">
               <h3 class="font-semibold mb-3">Gastos por categoría</h3>
               ${catCount > 1 ? `
-                <div class="relative" style="height: 220px;">
+                <div class="relative" style="height: 300px;">
                   <canvas id="chart-categories"></canvas>
                 </div>
               ` : `
@@ -1729,10 +1729,10 @@ function renderDashboard() {
             </div>
 
             <!-- Persona: gráfico si >1, lista si =1 -->
-            <div class="card p-4">
+            <div class="card p-3 sm:p-4">
               <h3 class="font-semibold mb-3">Gastos por persona</h3>
               ${personCount > 1 ? `
-                <div class="relative" style="height: 220px;">
+                <div class="relative" style="height: ${Math.max(80, personEntriesPreview.length * 50)}px;">
                   <canvas id="chart-persons"></canvas>
                 </div>
               ` : `
@@ -1778,9 +1778,9 @@ function renderDashboard() {
 
       <!-- Trend -->
       ${State.transactions.length > 0 ? `
-        <div class="card p-4">
-          <h3 class="font-semibold mb-4">Tendencia últimos 6 meses</h3>
-          <div class="relative" style="height: 180px;">
+        <div class="card p-3 sm:p-4">
+          <h3 class="font-semibold mb-3">Tendencia últimos 6 meses</h3>
+          <div class="relative" style="height: 200px;">
             <canvas id="chart-trend"></canvas>
           </div>
         </div>
@@ -1904,6 +1904,8 @@ function renderDashboardCharts() {
   const ctxCat = document.getElementById('chart-categories');
   if (ctxCat) {
     const isMobile = window.innerWidth < 640;
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim();
+    const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim() || '#FFFFFF';
     new Chart(ctxCat, {
       type: 'doughnut',
       data: {
@@ -1912,27 +1914,34 @@ function renderDashboardCharts() {
           data: catEntries.map(e => e[1]),
           backgroundColor: catEntries.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
           borderWidth: 2,
-          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim() || '#FFFFFF'
+          borderColor: surfaceColor
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: { top: 8, bottom: 8, left: 8, right: 8 }
+        },
         plugins: {
           legend: {
             position: isMobile ? 'bottom' : 'right',
+            align: 'center',
             labels: {
               font: { family: 'DM Sans', size: 11 },
-              padding: 8,
-              boxWidth: 12,
-              color: getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim()
+              padding: isMobile ? 10 : 12,
+              boxWidth: 10,
+              boxHeight: 10,
+              color: textColor,
+              usePointStyle: true,
+              pointStyle: 'circle'
             }
           },
           tooltip: {
             callbacks: { label: (c) => ` ${c.label}: ${fmt(c.parsed)}` }
           }
         },
-        cutout: '60%'
+        cutout: '55%'
       }
     });
   }
@@ -1961,25 +1970,28 @@ function renderDashboardCharts() {
         datasets: [{
           data: personEntries.map(e => e[1]),
           backgroundColor: personColors,
-          borderRadius: 8,
-          maxBarThickness: 80
+          borderRadius: 6,
+          maxBarThickness: 36
         }]
       },
       options: {
+        indexAxis: 'y', // Barras HORIZONTALES (mejor en móvil)
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } }
+          tooltip: {
+            callbacks: { label: (c) => ` ${fmt(c.parsed.x)}` }
+          }
         },
         scales: {
-          y: {
-            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k', font: { family: 'DM Sans' }, color: textColor },
+          x: {
+            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k', font: { family: 'DM Sans', size: 11 }, color: textColor },
             grid: { color: borderColor }
           },
-          x: {
+          y: {
             grid: { display: false },
-            ticks: { font: { family: 'DM Sans' }, color: textColor }
+            ticks: { font: { family: 'DM Sans', size: 12 }, color: textColor }
           }
         }
       }
