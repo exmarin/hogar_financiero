@@ -1661,11 +1661,13 @@ function renderDashboard() {
 
   const totalSpent = txnsExpense.reduce((s, t) => s + t.amount, 0);
 
-  // Ingresos: si hay transacciones de ingreso del mes, las usamos. Si no, estimado del config.
+  // Ingresos: SIEMPRE suma estimado base + ingresos reales del mes
+  // El estimado funciona como "sueldo fijo asumido". Si querés dejar de usarlo,
+  // pon en Configuración → Personas → Ingreso base = 0
   const totalIncomeReal = txnsIncome.reduce((s, t) => s + t.amount, 0);
   const totalIncomeEstimated = State.config.persons.reduce((s, p) => s + (p.income || 0), 0);
-  const usingEstimated = totalIncomeReal === 0 && totalIncomeEstimated > 0;
-  const totalIncome = totalIncomeReal > 0 ? totalIncomeReal : totalIncomeEstimated;
+  const totalIncome = totalIncomeEstimated + totalIncomeReal;
+  const usingEstimated = totalIncomeEstimated > 0;
 
   const balance = totalIncome - totalSpent;
   const pct = totalIncome > 0 ? (totalSpent / totalIncome) * 100 : 0;
@@ -1739,15 +1741,15 @@ function renderDashboard() {
              style="background: var(--color-warning-soft); color: var(--color-warning);">
           <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
           <div>
-            Mostrando <strong>ingreso estimado</strong> (configurado en Personas). Cuando cargues ingresos reales del mes, se usará ese dato.
-            <button data-action="open-add-income" class="underline font-semibold ml-1">Cargar ingreso →</button>
+            Ingresos = <strong>${fmt(totalIncomeEstimated)} estimado</strong> ${totalIncomeReal > 0 ? `+ <strong>${fmt(totalIncomeReal)} cargado este mes</strong>` : ''}.
+            Si querés dejar de usar el estimado, poné <strong>$0</strong> en Configuración → Personas.
           </div>
         </div>
       ` : ''}
 
       <!-- KPIs -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        ${kpiCard('Ingresos', fmt(totalIncome), 'trending-up', 'success', usingEstimated ? '(estimado)' : '')}
+        ${kpiCard('Ingresos', fmt(totalIncome), 'trending-up', 'success', usingEstimated && totalIncomeReal > 0 ? '(est. + real)' : usingEstimated ? '(estimado)' : '')}
         ${kpiCard('Gastado', fmt(totalSpent), 'trending-down', 'danger')}
         ${kpiCard('Balance', (balance >= 0 ? '+' : '') + fmt(balance), 'dollar-sign', balanceColor)}
         ${kpiCard('Tasa de ahorro', `${savingsRate.toFixed(1)}%`, 'piggy-bank', savingsRate > 20 ? 'success' : savingsRate > 0 ? 'warning' : 'danger')}
